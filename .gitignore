@@ -1,0 +1,42 @@
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+build/
+
+# IDE
+.vscode/
+.idea/
+.vs/
+
+# Android
+mobile/android/.gradle/
+mobile/android/local.properties
+
+# iOS
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/ephemeral/
+
+# Backend Python
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/
+backend/venv/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
