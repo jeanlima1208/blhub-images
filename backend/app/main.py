@@ -2,11 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.items import router as items_router
+from app.routes.upload import router as upload_router
+
 
 app = FastAPI(
     title="BLHub API",
     version="1.0"
 )
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,7 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 app.include_router(items_router)
+app.include_router(upload_router)
 
 
 @app.get("/")

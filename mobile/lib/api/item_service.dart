@@ -7,7 +7,7 @@ class ItemService {
   static const String baseUrl = 'http://163.176.237.176';
 
   static const String token =
-      'token 7844dd383253178:41770aca5443534';
+      'token 7844dd383253178:038b42a36383f66';
 
   static Map<String, String> get headers => {
         'Authorization': token,
@@ -322,55 +322,38 @@ static Future<Map<String, double>> getAllPrices() async {
 
 
   // UPLOAD IMAGEM
-  static Future<void> uploadImage(
-      String itemCode,
-      Uint8List bytes,
-      String fileName
-  ) async {
+static Future<void> uploadImage(
+  String itemCode,
+  Uint8List bytes,
+  String fileName,
+) async {
 
+  final request = http.MultipartRequest(
+    'POST',
+    Uri.parse('http://192.168.101.114:8000/upload-image'),
+  );
 
-    var request =
-        http.MultipartRequest(
-          'POST',
-          Uri.parse(
-            '$baseUrl/api/method/upload_file'
-          )
-        );
+  request.files.add(
+    http.MultipartFile.fromBytes(
+      'file',
+      bytes,
+      filename: fileName,
+    ),
+  );
 
+  request.fields['item_code'] = itemCode;
 
-    request.headers.addAll(headers);
+  final response = await request.send();
 
+  final body = await response.stream.bytesToString();
 
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename:fileName
-      )
-    );
-
-
-    request.fields.addAll({
-
-      'doctype':'Item',
-      'docname':itemCode,
-      'is_private':'0'
-
-    });
-
-
-
-    final response =
-        await request.send();
-
-
-
-    print(
-      "UPLOAD STATUS ${response.statusCode}"
-    );
-
+  if (response.statusCode != 200) {
+    throw Exception(body);
   }
 
+  print("UPLOAD OK");
+  print(body);
+}
 
 
 

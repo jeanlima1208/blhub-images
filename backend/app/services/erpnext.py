@@ -25,7 +25,7 @@ def test_connection():
 
 def get_items():
     r = requests.get(
-        f"{ERP_URL}/api/resource/Item?fields=[\"item_code\",\"item_name\",\"stock_uom\"]&limit_page_length=100",
+        f'{ERP_URL}/api/resource/Item?fields=["item_code","item_name","image"]&limit_page_length=10',
         headers=headers,
         timeout=15
     )
