@@ -1,0 +1,808 @@
+﻿import Link from "next/link";
+import Header from "@/components/layout/Header";
+import AddToCart from "@/components/cart/AddToCart";
+import {
+  getProduct,
+  getProducts,
+} from "@/services/products";
+
+type Props = {
+  params: Promise<{
+    codigo: string;
+  }>;
+};
+
+export default async function ProductPage({
+  params,
+}: Props) {
+  const { codigo } = await params;
+
+  // =========================================================
+  // PRODUTO ATUAL
+  // =========================================================
+
+  const product = await getProduct(codigo);
+
+  // =========================================================
+  // PRODUTO NÃO ENCONTRADO
+  // =========================================================
+
+  if (!product) {
+    return (
+      <section className="flex min-h-[70vh] items-center justify-center px-6 pt-[150px]">
+        <div className="text-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFEA00]">
+            BL Mantos
+          </p>
+
+          <h1 className="mt-4 text-4xl font-black uppercase tracking-tight text-white">
+            Produto não encontrado
+          </h1>
+
+          <Link
+            href="/"
+            className="mt-8 inline-flex rounded-full bg-[#FFEA00] px-7 py-3 text-xs font-black uppercase tracking-widest text-black transition hover:bg-white"
+          >
+            Voltar para a loja
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  // =========================================================
+  // TAMANHOS
+  // =========================================================
+
+  const sizeOrder = [
+    "P",
+    "M",
+    "G",
+    "GG",
+    "G1",
+    "G2",
+    "G3",
+    "G4",
+    "XXG",
+  ];
+
+  const availableSizes = (product.availableSizes ?? [])
+    .filter((size) => {
+      const [, quantity] = size.split("|");
+
+      return Number(quantity ?? 0) > 0;
+    })
+    .sort((a, b) => {
+      const sizeA = a.split("|")[0].toUpperCase();
+      const sizeB = b.split("|")[0].toUpperCase();
+
+      const indexA = sizeOrder.indexOf(sizeA);
+      const indexB = sizeOrder.indexOf(sizeB);
+
+      return (
+        (indexA === -1 ? 999 : indexA) -
+        (indexB === -1 ? 999 : indexB)
+      );
+    });
+
+  const price = Number(product.price ?? 0);
+  const stock = Number(product.stock ?? 0);
+
+  // =========================================================
+  // TIPO DO PRODUTO
+  // =========================================================
+
+  const currentName =
+    product.item_name?.toUpperCase() ?? "";
+
+  const isTailandesa =
+    currentName.includes("TAILANDESA");
+
+  const productType = isTailandesa
+    ? "TAILANDESA 1.1"
+    : "NACIONAL PREMIUM";
+
+  const badgeClass = isTailandesa
+    ? "bg-[#FFEA00] text-black"
+    : "bg-[#00FF66] text-black";
+
+  // =========================================================
+  // IMAGENS
+  // =========================================================
+
+  const productImages = product.image
+    ? [product.image]
+    : [];
+
+  // =========================================================
+  // PRODUTOS RELACIONADOS
+  // =========================================================
+
+  const allProducts = await getProducts();
+
+  // =========================================================
+  // PALAVRAS QUE NÃO FAZEM PARTE DO TIME
+  // =========================================================
+
+  const ignoredWords = new Set([
+    "CAMISA",
+    "CAMISAS",
+    "MASCULINA",
+    "MASCULINO",
+    "FEMININA",
+    "FEMININO",
+
+    "TAILANDESA",
+    "TAILANDES",
+    "NACIONAL",
+    "PREMIUM",
+
+    "BRANCA",
+    "BRANCO",
+    "PRETA",
+    "PRETO",
+    "VERMELHA",
+    "VERMELHO",
+    "AZUL",
+    "AMARELA",
+    "AMARELO",
+    "VERDE",
+    "ROXA",
+    "ROXO",
+    "ROSA",
+    "LARANJA",
+    "CINZA",
+    "GRAFITE",
+    "MARINHO",
+    "DOURADA",
+    "DOURADO",
+
+    "HOME",
+    "AWAY",
+    "THIRD",
+    "I",
+    "II",
+    "III",
+    "1",
+    "2",
+    "3",
+
+    "JOGADOR",
+    "TORCEDOR",
+    "PLAYER",
+    "FAN",
+
+    "INFANTIL",
+    "KIDS",
+    "JUVENIL",
+
+    "G",
+    "GG",
+    "G1",
+    "G2",
+    "G3",
+    "G4",
+    "P",
+    "M",
+    "XXG",
+
+    "OFICIAL",
+    "VERSAO",
+    "VERSÃO",
+    "MODELO",
+    "NOVO",
+    "NOVA",
+    "EDIÇÃO",
+    "EDICAO",
+
+    "2024",
+    "2025",
+    "2026",
+    "2027",
+    "2028",
+    "2029",
+    "2030",
+  ]);
+
+  // =========================================================
+  // EXTRAI PALAVRAS DO TIME
+  // =========================================================
+
+  function getTeamWords(name: string): string[] {
+    return name
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9\s]/g, " ")
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter(Boolean)
+      .filter((word) => !ignoredWords.has(word))
+      .filter((word) => !/^\d+$/.test(word))
+      .filter((word) => word.length >= 3);
+  }
+
+  const teamWords = getTeamWords(currentName);
+
+  // =========================================================
+  // PRODUTOS RELACIONADOS
+  // =========================================================
+
+  const relatedProducts = allProducts
+    .filter((item) => {
+      if (item.item_code === product.item_code) {
+        return false;
+      }
+
+      if (Number(item.stock ?? 0) <= 0) {
+        return false;
+      }
+
+      if (Number(item.price ?? 0) <= 0) {
+        return false;
+      }
+
+      const itemName =
+        item.item_name?.toUpperCase() ?? "";
+
+      if (!itemName) {
+        return false;
+      }
+
+      const itemTeamWords =
+        getTeamWords(itemName);
+
+      return teamWords.some((word) =>
+        itemTeamWords.includes(word)
+      );
+    })
+    .slice(0, 4);
+
+  // =========================================================
+  // PÁGINA
+  // =========================================================
+
+  return (
+    <main className="min-h-screen bg-[#050505] text-white">
+
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
+      <Header />
+
+      {/* =====================================================
+          FUNDO
+      ===================================================== */}
+
+      <div className="pointer-events-none fixed inset-0 -z-0 overflow-hidden">
+
+        <div className="absolute left-1/2 top-[18%] h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[#FFEA00]/[0.025] blur-[140px]" />
+
+        <div className="absolute right-[-200px] top-[50%] h-[500px] w-[500px] rounded-full bg-[#00FF66]/[0.015] blur-[140px]" />
+
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(255,234,0,0.035),transparent_35%)]" />
+
+      </div>
+
+      {/* =====================================================
+          PRODUTO
+      ===================================================== */}
+
+      <section className="relative z-10 px-4 pb-24 pt-[155px] sm:px-6 lg:pt-[175px]">
+
+        <div className="mx-auto max-w-6xl">
+
+          <div className="grid items-start gap-12 lg:grid-cols-[0.92fr_1fr] lg:gap-16">
+
+            {/* =================================================
+                GALERIA
+            ================================================= */}
+
+            <div className="relative">
+
+              <div className="absolute -inset-10 -z-10 rounded-[50px] bg-[#FFEA00]/[0.025] blur-[80px]" />
+
+              <div className="relative rounded-[30px] border border-white/[0.10] bg-[#0B0B0B] p-[1px] shadow-[0_30px_100px_rgba(0,0,0,0.65)]">
+
+                <div className="relative overflow-hidden rounded-[29px] bg-[#111111]">
+
+                  <div className="pointer-events-none absolute left-[15%] right-[15%] top-0 z-20 h-px bg-gradient-to-r from-transparent via-[#FFEA00]/60 to-transparent" />
+
+                  <div
+                    className={`absolute left-5 top-5 z-30 rounded-full px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.15em] shadow-lg ${badgeClass}`}
+                  >
+                    {productType}
+                  </div>
+
+                  {product.image ? (
+                    <div className="aspect-[4/5] w-full">
+                      <img
+                        src={product.image}
+                        alt={product.item_name}
+                        className="block h-full w-full object-cover transition duration-700 hover:scale-[1.025]"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex aspect-[4/5] w-full items-center justify-center">
+                      <span className="text-7xl font-black text-white/[0.035]">
+                        BL
+                      </span>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+              {/* =================================================
+                  MINI GALERIA
+              ================================================= */}
+
+              {productImages.length > 0 && (
+                <div className="mt-4 flex gap-2">
+
+                  {productImages.map((image, index) => (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      aria-label={`Imagem ${index + 1}`}
+                      className="h-[68px] w-[58px] overflow-hidden rounded-xl border border-[#FFEA00] bg-[#0B0B0B] p-[2px]"
+                    >
+                      <img
+                        src={image}
+                        alt=""
+                        className="h-full w-full rounded-[9px] object-cover"
+                      />
+                    </button>
+                  ))}
+
+                </div>
+              )}
+
+            </div>
+
+            {/* =================================================
+                INFORMAÇÕES
+            ================================================= */}
+
+            <div className="lg:pt-3">
+
+              <div className="flex items-center gap-3">
+
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#FFEA00]">
+                  BL Mantos
+                </span>
+
+                <span className="h-px w-7 bg-white/15" />
+
+                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/45">
+                  {product.item_group || "Camisas"}
+                </span>
+
+              </div>
+
+              <h1 className="mt-4 max-w-xl text-3xl font-black uppercase leading-[1.03] tracking-tight text-white sm:text-4xl lg:text-[42px]">
+                {product.item_name}
+              </h1>
+
+              <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.2em] text-white/40">
+                SKU {product.item_code}
+              </p>
+
+              {/* =================================================
+                  PREÇO
+              ================================================= */}
+
+              <div className="mt-7">
+                <span className="text-4xl font-black tracking-tight text-white sm:text-[42px]">
+                  R$ {price.toFixed(2).replace(".", ",")}
+                </span>
+              </div>
+
+              <div className="mt-7 h-px bg-gradient-to-r from-white/[0.14] via-white/[0.06] to-transparent" />
+
+              {/* =================================================
+                  MODELO
+              ================================================= */}
+
+              <div className="mt-7">
+
+                <p className="mb-3 text-[9px] font-black uppercase tracking-[0.22em] text-white/50">
+                  Modelo
+                </p>
+
+                <span
+                  className={`inline-flex rounded-full px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.15em] ${badgeClass}`}
+                >
+                  {productType}
+                </span>
+
+              </div>
+
+              {/* =================================================
+                  TAMANHO + QUANTIDADE + COMPRAR
+              ================================================= */}
+
+              <AddToCart
+                itemCode={product.item_code}
+                itemName={product.item_name}
+                image={product.image ?? null}
+                price={price}
+                availableSizes={availableSizes}
+                stock={stock}
+              />
+
+              {/* =================================================
+                  CEP
+              ================================================= */}
+
+              <div className="mt-5 rounded-2xl border border-white/[0.08] bg-[#0A0A0A] p-5">
+
+                <div className="flex items-start justify-between gap-4">
+
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/70">
+                      Calcule o frete
+                    </p>
+
+                    <p className="mt-1 text-[10px] text-white/40">
+                      Consulte o prazo de entrega para seu CEP.
+                    </p>
+                  </div>
+
+                  <span className="text-[9px] font-black uppercase tracking-wider text-[#00FF66]">
+                    Envio nacional
+                  </span>
+
+                </div>
+
+                <div className="mt-4 flex gap-2">
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={9}
+                    placeholder="00000-000"
+                    aria-label="CEP"
+                    className="h-11 min-w-0 flex-1 rounded-lg border border-white/[0.10] bg-[#111111] px-4 text-xs font-bold text-white outline-none placeholder:text-white/25 focus:border-[#FFEA00]/60"
+                  />
+
+                  <button
+                    type="button"
+                    className="h-11 rounded-lg border border-[#FFEA00]/40 bg-[#FFEA00]/[0.08] px-5 text-[9px] font-black uppercase tracking-[0.16em] text-[#FFEA00] transition hover:border-[#FFEA00] hover:bg-[#FFEA00] hover:text-black"
+                  >
+                    Calcular
+                  </button>
+
+                </div>
+
+              </div>
+
+              {/* =================================================
+                  CONFIANÇA
+              ================================================= */}
+
+              <div className="mt-6 grid grid-cols-3 border-t border-white/[0.08] pt-6">
+
+                <div className="px-2 text-center">
+
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                    Entrega
+                  </p>
+
+                  <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-white/85">
+                    Rápida em PG
+                  </p>
+
+                </div>
+
+                <div className="border-x border-white/[0.08] px-2 text-center">
+
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                    Envio
+                  </p>
+
+                  <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-white/85">
+                    Todo Brasil
+                  </p>
+
+                </div>
+
+                <div className="px-2 text-center">
+
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/60">
+                    Qualidade
+                  </p>
+
+                  <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-white/85">
+                    Premium
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* =====================================================
+              INFORMAÇÕES DO PRODUTO
+          ===================================================== */}
+
+          <div className="mt-16 grid items-stretch gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+
+            {/* =================================================
+                SOBRE
+            ================================================= */}
+
+            <div className="h-full rounded-2xl border border-white/[0.08] bg-[#090909] p-6 sm:p-7">
+
+              <div className="flex items-center gap-3">
+
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FFEA00] shadow-[0_0_10px_#FFEA00]" />
+
+                <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#FFEA00]">
+                  Detalhes
+                </p>
+
+              </div>
+
+              <h2 className="mt-3 text-xl font-black uppercase tracking-tight text-white">
+                Sobre o produto
+              </h2>
+
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/55">
+                Camisa selecionada pela BL Mantos com foco em
+                acabamento, conforto e qualidade. Consulte a
+                disponibilidade de tamanhos antes da compra.
+              </p>
+
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+
+                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">
+                    Modelo
+                  </p>
+
+                  <p className="mt-2 text-[10px] font-black uppercase text-white/85">
+                    {productType}
+                  </p>
+
+                </div>
+
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+
+                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">
+                    Categoria
+                  </p>
+
+                  <p className="mt-2 text-[10px] font-black uppercase text-white/85">
+                    {product.item_group || "Camisas"}
+                  </p>
+
+                </div>
+
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+
+                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">
+                    Disponibilidade
+                  </p>
+
+                  <p className="mt-2 text-[10px] font-black uppercase text-[#00FF66]">
+                    Em estoque
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* =================================================
+                GUIA DE MEDIDAS
+            ================================================= */}
+
+            <div className="h-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#090909]">
+
+              <div className="p-6 pb-4 sm:p-7 sm:pb-5">
+
+                <div className="flex items-center gap-3">
+
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#FFEA00] shadow-[0_0_10px_#FFEA00]" />
+
+                  <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#FFEA00]">
+                    Tabela de medidas
+                  </p>
+
+                </div>
+
+                <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-white">
+                  Encontre seu tamanho
+                </h2>
+
+              </div>
+
+              <div className="grid grid-cols-3 border-b border-white/[0.08] bg-white/[0.025] px-4 py-3">
+
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
+                  Tamanho
+                </p>
+
+                <p className="text-center text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
+                  Comprimento
+                </p>
+
+                <p className="text-center text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
+                  Largura
+                </p>
+
+              </div>
+
+              {[
+                ["P", "68–71 cm", "52–55 cm"],
+                ["M", "71–74 cm", "54–57 cm"],
+                ["G", "73–76 cm", "56–59 cm"],
+                ["GG", "75–78 cm", "58–61 cm"],
+                ["G2", "78–81 cm", "60–63 cm"],
+                ["G3", "81–84 cm", "62–65 cm"],
+                ["G4", "83–86 cm", "64–67 cm"],
+              ].map(([size, length, width]) => (
+
+                <div
+                  key={size}
+                  className="grid grid-cols-3 border-b border-white/[0.05] px-4 py-3 last:border-b-0"
+                >
+
+                  <p className="text-[10px] font-black uppercase text-white">
+                    {size}
+                  </p>
+
+                  <p className="text-center text-[10px] font-bold text-white/75">
+                    {length}
+                  </p>
+
+                  <p className="text-center text-[10px] font-bold text-white/75">
+                    {width}
+                  </p>
+
+                </div>
+
+              ))}
+
+              <div className="border-t border-white/[0.08] bg-[#0D0D0D] p-5">
+
+                <p className="text-[9px] font-black uppercase tracking-[0.15em] text-[#FFEA00]">
+                  Importante
+                </p>
+
+                <p className="mt-2 text-[10px] leading-5 text-white/60">
+                  As medidas são aproximadas e podem variar de acordo com
+                  o modelo, fabricante e corte da peça.
+                </p>
+
+                <p className="mt-2 text-[10px] font-bold leading-5 text-white/85">
+                  Para consultar as medidas exatas do modelo escolhido,
+                  fale conosco pelo WhatsApp antes da compra.
+                </p>
+
+                <p className="mt-3 text-[10px] font-black tracking-wide text-[#FFEA00]">
+                  WhatsApp: (42) 99924-9903
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* =====================================================
+          RELACIONADOS
+      ===================================================== */}
+
+      {relatedProducts.length > 0 && (
+        <section className="relative z-10 border-t border-white/[0.07] bg-[#080808] px-4 py-16 sm:px-6">
+
+          <div className="mx-auto max-w-6xl">
+
+            <div className="mb-8">
+
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#FFEA00]">
+                Continue explorando
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-white sm:text-3xl">
+                Você também pode gostar
+              </h2>
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+
+              {relatedProducts.map((item) => {
+
+                const itemIsTailandesa =
+                  item.item_name
+                    ?.toUpperCase()
+                    .includes("TAILANDESA");
+
+                const itemPrice =
+                  Number(item.price ?? 0);
+
+                return (
+                  <Link
+                    key={item.item_code}
+                    href={`/produto/${item.item_code}`}
+                    className="group"
+                  >
+
+                    <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0D0D0D] transition duration-300 group-hover:border-white/[0.18]">
+
+                      {item.image ? (
+                        <div className="aspect-[4/5] overflow-hidden">
+
+                          <img
+                            src={item.image}
+                            alt={item.item_name}
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                          />
+
+                        </div>
+                      ) : (
+                        <div className="flex aspect-[4/5] items-center justify-center">
+
+                          <span className="text-4xl font-black text-white/[0.04]">
+                            BL
+                          </span>
+
+                        </div>
+                      )}
+
+                      <div
+                        className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-wider ${
+                          itemIsTailandesa
+                            ? "bg-[#FFEA00] text-black"
+                            : "bg-[#00FF66] text-black"
+                        }`}
+                      >
+                        {itemIsTailandesa
+                          ? "Tailandesa 1.1"
+                          : "Nacional Premium"}
+                      </div>
+
+                    </div>
+
+                    <div className="px-1 pt-3">
+
+                      <p className="truncate text-[10px] font-black uppercase tracking-wide text-white/90">
+                        {item.item_name}
+                      </p>
+
+                      <p className="mt-1 text-sm font-black text-white">
+                        R${" "}
+                        {itemPrice
+                          .toFixed(2)
+                          .replace(".", ",")}
+                      </p>
+
+                    </div>
+
+                  </Link>
+                );
+              })}
+
+            </div>
+
+          </div>
+
+        </section>
+      )}
+
+    </main>
+  );
+}
