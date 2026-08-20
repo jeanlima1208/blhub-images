@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Header from "@/components/layout/Header";
 import {
   getProducts,
@@ -37,10 +38,16 @@ export default async function ProductsPage() {
             </p>
           </div>
 
-          <CatalogClient
-            products={products}
-            bestSellers={bestSellers}
-          />
+          <Suspense
+            fallback={
+              <div className="min-h-[400px]" />
+            }
+          >
+            <CatalogClient
+              products={products}
+              bestSellers={bestSellers}
+            />
+          </Suspense>
         </div>
       </section>
     </main>

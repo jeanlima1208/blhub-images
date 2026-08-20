@@ -1,4 +1,4 @@
-import Button from "@/components/ui/Button";
+import Link from "next/link";
 
 export default function Hero() {
   return (
@@ -146,10 +146,29 @@ export default function Hero() {
           {/* CTA */}
 
           <div className="mt-9">
-            <Button>
-              Ver camisas
-            </Button>
-          </div>
+  <Link
+    href="/produtos"
+    className="
+      inline-flex
+      items-center
+      justify-center
+      rounded-xl
+      bg-[#FFEA00]
+      px-7
+      py-4
+      text-[10px]
+      font-black
+      uppercase
+      tracking-[0.2em]
+      text-black
+      transition
+      hover:-translate-y-0.5
+      hover:bg-white
+    "
+  >
+    Ver camisas
+  </Link>
+</div>
 
 
           {/* =====================================================

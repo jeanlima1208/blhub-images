@@ -1,29 +1,33 @@
-import Image from "next/image";
+import Link from "next/link";
 
 const categories = [
   {
-    title: "Times",
-    subtitle: "Clubes que você veste.",
-    image: "/images/categories/times.png",
+    title: "Times Nacionais",
+    subtitle: "Os maiores clubes do Brasil.",
+    image: "/images/categories/times-nacionais.png",
     action: "Ver camisas",
+    href: "/produtos?categoria=Brasileiros",
+  },
+  {
+    title: "Times Europeus",
+    subtitle: "Os grandes clubes da Europa.",
+    image: "/images/categories/times-europeus.png",
+    action: "Ver camisas",
+    href: "/produtos?categoria=Europeus",
   },
   {
     title: "Seleções",
     subtitle: "Vista seu país.",
     image: "/images/categories/selecoes.png",
     action: "Ver camisas",
+    href: "/produtos?categoria=Seleções",
   },
   {
-    title: "Lançamentos",
-    subtitle: "Os novos mantos chegaram.",
-    image: "/images/categories/lancamentos.png",
-    action: "Ver lançamentos",
-  },
-  {
-    title: "Promoções",
-    subtitle: "Mantos selecionados com preço especial.",
-    image: "/images/categories/promocoes.png",
-    action: "Ver ofertas",
+    title: "Outros Continentes",
+    subtitle: "Mantos de clubes de todo o mundo.",
+    image: "/images/categories/outros-continentes.png",
+    action: "Ver camisas",
+    href: "/produtos?categoria=Outros",
     highlight: true,
   },
 ];
@@ -32,7 +36,6 @@ export default function Categories() {
   return (
     <section className="bg-[#050505] px-6 py-24">
       <div className="mx-auto max-w-7xl">
-
         <div className="mb-12">
           <div className="mb-4 flex items-center gap-3">
             <span className="h-[2px] w-10 bg-[#FFEA00]" />
@@ -59,7 +62,6 @@ export default function Categories() {
             />
           ))}
         </div>
-
       </div>
     </section>
   );
@@ -70,20 +72,23 @@ function CategoryCard({
   subtitle,
   image,
   action,
+  href,
   highlight,
 }: {
   title: string;
   subtitle: string;
   image: string;
   action: string;
+  href: string;
   highlight?: boolean;
 }) {
   return (
-    <button
-      type="button"
+    <Link
+      href={href}
       className={`
         group
         relative
+        block
         h-[340px]
         w-full
         overflow-hidden
@@ -99,58 +104,51 @@ function CategoryCard({
         hover:border-[#FFEA00]/50
       `}
     >
-      {/* Iluminação */}
+      {/* Imagem de fundo */}
       <div
         className="
-          pointer-events-none
           absolute
           inset-0
-          bg-[radial-gradient(circle_at_75%_45%,rgba(255,234,0,.13),transparent_42%)]
-          opacity-60
-          transition
-          duration-500
-          group-hover:opacity-100
+          bg-cover
+          bg-center
+          bg-no-repeat
+          transition-transform
+          duration-700
+          group-hover:scale-[1.03]
         "
+        style={{
+          backgroundImage: `url("${image}")`,
+        }}
+        aria-hidden="true"
       />
 
-      {/* Imagem */}
-      <div
-        className="
-          absolute
-          right-[-35px]
-          top-1/2
-          h-[330px]
-          w-[68%]
-          -translate-y-1/2
-          transition-all
-          duration-700
-          group-hover:scale-105
-          group-hover:translate-x-[-8px]
-        "
-      >
-        <Image
-          src={image}
-          alt={`${title} - BL Mantos`}
-          fill
-          sizes="(max-width: 768px) 100vw, 50vw"
-          className="
-            object-contain
-            object-right
-            drop-shadow-[0_25px_35px_rgba(0,0,0,0.55)]
-          "
-        />
-      </div>
+      {/* Escurecimento geral */}
+      <div className="pointer-events-none absolute inset-0 bg-black/15" />
 
-      {/* Degradê */}
+      {/* Degradê para leitura do texto */}
       <div
         className="
           pointer-events-none
           absolute
           inset-0
           bg-gradient-to-r
-          from-[#101010]
-          via-[#101010]/90
+          from-[#050505]/95
+          via-[#050505]/55
           to-transparent
+        "
+      />
+
+      {/* Iluminação */}
+      <div
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          bg-[radial-gradient(circle_at_80%_45%,rgba(255,234,0,.10),transparent_38%)]
+          opacity-70
+          transition
+          duration-500
+          group-hover:opacity-100
         "
       />
 
@@ -178,7 +176,7 @@ function CategoryCard({
               ${
                 highlight
                   ? "text-[#FFEA00]"
-                  : "text-white/35"
+                  : "text-white/50"
               }
             `}
           >
@@ -205,7 +203,7 @@ function CategoryCard({
               max-w-[230px]
               text-sm
               leading-relaxed
-              text-white/45
+              text-white/60
             "
           >
             {subtitle}
@@ -257,6 +255,6 @@ function CategoryCard({
           group-hover:w-full
         "
       />
-    </button>
+    </Link>
   );
 }
