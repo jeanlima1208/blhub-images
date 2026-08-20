@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Logo from "@/components/ui/Logo";
 import StadiumLED from "@/components/home/StadiumLED";
-import { getProducts, type Product } from "@/services/products";
+import type { Product } from "@/services/products";
 import { useCart } from "@/components/cart/CartProvider";
 
 function SearchIcon() {
@@ -138,53 +138,50 @@ const categories = [
   },
 ];
 
-function getProductType(product: Product) {
-  const group = String(product.item_group || "")
-    .trim()
-    .toUpperCase();
+function normalizeCategory(
+  value?: string | null
+) {
+  const category =
+    String(value || "").trim();
 
-  if (group === "CAMISAS" || group === "CAMISA") {
-    return "CAMISAS";
+  if (
+    category === "SeleÃ§Ãµes" ||
+    category === "SELEÃ‡Ã•ES"
+  ) {
+    return "Seleções";
   }
 
-  if (group === "JAQUETAS" || group === "JAQUETA") {
-    return "JAQUETAS";
-  }
-
-  if (group === "CONJUNTOS" || group === "CONJUNTO") {
-    return "CONJUNTOS";
-  }
-
-  return group;
+  return category;
 }
 
-function isTailandesa(product: Product) {
+function categoryHref(category: string) {
   return (
-    getProductType(product) === "CAMISAS" &&
-    String(product.item_name || "")
-      .toUpperCase()
-      .includes("TAILANDESA")
+    "/produtos?tipo=CAMISAS&categoria=" +
+    encodeURIComponent(category)
   );
 }
 
-function categoryHref(categoryId: string) {
+function teamHref(
+  category: string,
+  team: string
+) {
   return (
-    "/produtos?categoria=" +
-    encodeURIComponent(categoryId)
-  );
-}
-
-function teamHref(team: string) {
-  return (
-    "/produtos?time=" +
+    "/produtos?tipo=CAMISAS&categoria=" +
+    encodeURIComponent(category) +
+    "&time=" +
     encodeURIComponent(team)
   );
 }
 
 export default function Header() {
-  const [scrolled, setScrolled] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] =
+    useState(false);
+
+  const [products, setProducts] =
+    useState<Product[]>([]);
+
+  const [mobileOpen, setMobileOpen] =
+    useState(false);
 
   const { totalItems } = useCart();
 
@@ -193,21 +190,48 @@ export default function Header() {
       setScrolled(window.scrollY > 40);
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener(
+      "scroll",
+      handleScroll
+    );
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener(
+        "scroll",
+        handleScroll
+      );
     };
   }, []);
 
+  /*
+   * Busca pelo próprio Next.js.
+   * Não acessa o IP do backend diretamente no navegador.
+   */
   useEffect(() => {
     let mounted = true;
 
     async function loadProducts() {
       try {
-        const data = await getProducts();
+        const response = await fetch(
+          "/api/items",
+          {
+            cache: "no-store",
+          }
+        );
 
-        if (mounted) {
+        if (!response.ok) {
+          throw new Error(
+            `HTTP ${response.status}`
+          );
+        }
+
+        const data =
+          await response.json();
+
+        if (
+          mounted &&
+          Array.isArray(data)
+        ) {
           setProducts(data);
         }
       } catch (error) {
@@ -225,8 +249,17 @@ export default function Header() {
     };
   }, []);
 
+  /*
+   * ==========================================================
+   * TIMES POR CATEGORIA
+   * ==========================================================
+   */
+
   const teamsByCategory = useMemo(() => {
-    const result: Record<string, string[]> = {};
+    const result: Record<
+      string,
+      string[]
+    > = {};
 
     categories.forEach((category) => {
       result[category.id] = [];
@@ -234,17 +267,20 @@ export default function Header() {
 
     products.forEach((product) => {
       const category =
-        product.custom_categoria_time?.trim() || "";
+        normalizeCategory(
+          product.custom_categoria_time
+        );
 
       const team =
-        product.custom_time_nome?.trim() || "";
+        product.custom_time_nome?.trim() ||
+        "";
 
       if (!category || !team) {
         return;
       }
 
       if (!result[category]) {
-        result[category] = [];
+        return;
       }
 
       if (!result[category].includes(team)) {
@@ -252,28 +288,50 @@ export default function Header() {
       }
     });
 
-    Object.keys(result).forEach((category) => {
-      result[category].sort((a, b) =>
-        a.localeCompare(b, "pt-BR")
-      );
-    });
+    Object.keys(result).forEach(
+      (category) => {
+        result[category].sort(
+          (a, b) =>
+            a.localeCompare(
+              b,
+              "pt-BR"
+            )
+        );
+      }
+    );
 
     return result;
   }, [products]);
 
-  const hasNacional = useMemo(() => {
-    return products.some(
+  const hasNacional =
+    products.some(
       (product) =>
-        getProductType(product) === "CAMISAS" &&
-        !isTailandesa(product)
+        String(
+          product.item_group || ""
+        )
+          .trim()
+          .toUpperCase() === "CAMISAS" &&
+        !String(
+          product.item_name || ""
+        )
+          .toUpperCase()
+          .includes("TAILANDESA")
     );
-  }, [products]);
 
-  const hasTailandesa = useMemo(() => {
-    return products.some((product) =>
-      isTailandesa(product)
+  const hasTailandesa =
+    products.some(
+      (product) =>
+        String(
+          product.item_group || ""
+        )
+          .trim()
+          .toUpperCase() === "CAMISAS" &&
+        String(
+          product.item_name || ""
+        )
+          .toUpperCase()
+          .includes("TAILANDESA")
     );
-  }, [products]);
 
   function closeMobile() {
     setMobileOpen(false);
@@ -289,205 +347,24 @@ export default function Header() {
             : "bg-[#050505]/55 backdrop-blur-md")
         }
       >
-        {/* =====================================================
-            HEADER PRINCIPAL
-        ===================================================== */}
-
         <div className="mx-auto flex h-[82px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
-          {/* LOGO */}         {/* LOGO */}
-<div className="flex shrink-0 items-center">
-  <Link href="/" onClick={closeMobile}>
-    <Logo />
-  </Link>
-</div>
+          {/* LOGO */}
 
-          {/* ===================================================
+          <div className="flex shrink-0 items-center">
+            <Link
+              href="/"
+              onClick={closeMobile}
+            >
+              <Logo />
+            </Link>
+          </div>
+
+          {/* ==================================================
               MENU DESKTOP
-          =================================================== */}
+          ================================================== */}
 
           <nav className="hidden items-center gap-9 lg:flex">
             {/* =================================================
-                TIMES
-            ================================================= */}
-
-            <div className="group relative">
-              <button
-                type="button"
-                className="
-                  relative
-                  flex
-                  items-center
-                  gap-1.5
-                  py-3
-                  text-[11px]
-                  font-black
-                  uppercase
-                  tracking-[0.22em]
-                  text-white/65
-                  transition
-                  hover:text-white
-                "
-              >
-                TIMES
-
-                <ChevronDownIcon />
-
-                <span
-                  className="
-                    absolute
-                    bottom-0
-                    left-1/2
-                    h-px
-                    w-0
-                    -translate-x-1/2
-                    bg-[#FFEA00]
-                    transition-all
-                    duration-300
-                    group-hover:w-full
-                  "
-                />
-              </button>
-
-              {/* PRIMEIRO NÍVEL */}
-
-              <div
-                className="
-                  pointer-events-none
-                  absolute
-                  left-1/2
-                  top-full
-                  z-[60]
-                  w-[255px]
-                  -translate-x-1/2
-                  translate-y-2
-                  border
-                  border-white/[0.08]
-                  bg-[#090909]
-                  p-2
-                  opacity-0
-                  shadow-[0_25px_70px_rgba(0,0,0,0.55)]
-                  transition-all
-                  duration-200
-                  group-hover:pointer-events-auto
-                  group-hover:translate-y-0
-                  group-hover:opacity-100
-                "
-              >
-                <div className="mb-2 border-b border-white/[0.06] px-4 py-3">
-                  <p className="text-[8px] font-black uppercase tracking-[0.25em] text-white/30">
-                    CATEGORIAS
-                  </p>
-                </div>
-
-                <div className="space-y-1">
-                  {categories.map((category) => {
-                    const teams =
-                      teamsByCategory[category.id] || [];
-
-                    const href = categoryHref(category.id);
-
-                    return (
-                      <div
-                        key={category.id}
-                        className="group/category relative"
-                      >
-                        <Link
-                          href={href}
-                          className="
-                            flex
-                            items-center
-                            justify-between
-                            gap-3
-                            px-4
-                            py-3.5
-                            text-[10px]
-                            font-black
-                            uppercase
-                            tracking-[0.12em]
-                            text-white/65
-                            transition
-                            hover:bg-white/[0.045]
-                            hover:text-[#FFEA00]
-                          "
-                        >
-                          <span>{category.label}</span>
-
-                          <ChevronRightIcon />
-                        </Link>
-
-                        {/* SEGUNDO NÍVEL: TIMES */}
-
-                        {teams.length > 0 && (
-                          <div
-                            className="
-                              pointer-events-none
-                              absolute
-                              left-full
-                              top-0
-                              ml-2
-                              w-[255px]
-                              border
-                              border-white/[0.08]
-                              bg-[#090909]
-                              p-2
-                              opacity-0
-                              shadow-[0_25px_70px_rgba(0,0,0,0.55)]
-                              transition-all
-                              duration-150
-                              group-hover/category:pointer-events-auto
-                              group-hover/category:opacity-100
-                            "
-                          >
-                            <div className="mb-2 border-b border-white/[0.06] px-4 py-3">
-                              <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#FFEA00]">
-                                {category.label}
-                              </p>
-
-                              <Link
-                                href={href}
-                                className="mt-1 block text-[7px] font-bold uppercase tracking-[0.15em] text-white/25 transition hover:text-white/60"
-                              >
-                                VER TODOS
-                              </Link>
-                            </div>
-
-                            <div className="max-h-[430px] overflow-y-auto">
-                              {teams.map((team) => (
-                                <Link
-                                  key={
-                                    category.id +
-                                    "-" +
-                                    team
-                                  }
-                                  href={teamHref(team)}
-                                  className="
-                                    block
-                                    px-4
-                                    py-2.5
-                                    text-[9px]
-                                    font-bold
-                                    uppercase
-                                    tracking-[0.04em]
-                                    text-white/45
-                                    transition
-                                    hover:bg-white/[0.045]
-                                    hover:text-white
-                                  "
-                                >
-                                  {team}
-                                </Link>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* =================================================
                 PRODUTOS
             ================================================= */}
 
@@ -529,7 +406,7 @@ export default function Header() {
                 />
               </button>
 
-              {/* PRIMEIRO NÍVEL */}
+              {/* NIVEL 1 */}
 
               <div
                 className="
@@ -537,8 +414,8 @@ export default function Header() {
                   absolute
                   left-1/2
                   top-full
-                  z-[60]
-                  w-[255px]
+                  z-[70]
+                  w-[260px]
                   -translate-x-1/2
                   translate-y-2
                   border
@@ -587,7 +464,7 @@ export default function Header() {
                     <ChevronRightIcon />
                   </Link>
 
-                  {/* SEGUNDO NÍVEL: MODELOS */}
+                  {/* NIVEL 2: CATEGORIAS DE TIMES */}
 
                   <div
                     className="
@@ -596,7 +473,7 @@ export default function Header() {
                       left-full
                       top-0
                       ml-2
-                      w-[245px]
+                      w-[255px]
                       border
                       border-white/[0.08]
                       bg-[#090909]
@@ -615,6 +492,130 @@ export default function Header() {
                       </p>
                     </div>
 
+                    {categories.map(
+                      (category) => (
+                        <div
+                          key={category.id}
+                          className="group/category relative"
+                        >
+                          <Link
+                            href={categoryHref(
+                              category.id
+                            )}
+                            className="
+                              flex
+                              items-center
+                              justify-between
+                              gap-3
+                              px-4
+                              py-3
+                              text-[9px]
+                              font-black
+                              uppercase
+                              tracking-[0.08em]
+                              text-white/55
+                              transition
+                              hover:bg-white/[0.045]
+                              hover:text-[#FFEA00]
+                            "
+                          >
+                            <span>
+                              {category.label}
+                            </span>
+
+                            <ChevronRightIcon />
+                          </Link>
+
+                          {/* NIVEL 3: TIMES */}
+
+                          <div
+                            className="
+                              pointer-events-none
+                              absolute
+                              left-full
+                              top-0
+                              ml-2
+                              w-[250px]
+                              border
+                              border-white/[0.08]
+                              bg-[#090909]
+                              p-2
+                              opacity-0
+                              shadow-[0_25px_70px_rgba(0,0,0,0.55)]
+                              transition-all
+                              duration-150
+                              group-hover/category:pointer-events-auto
+                              group-hover/category:opacity-100
+                            "
+                          >
+                            <div className="mb-2 border-b border-white/[0.06] px-4 py-3">
+                              <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#FFEA00]">
+                                {
+                                  category.label
+                                }
+                              </p>
+
+                              <Link
+                                href={categoryHref(
+                                  category.id
+                                )}
+                                className="mt-1 block text-[7px] font-bold uppercase tracking-[0.15em] text-white/25 transition hover:text-white/60"
+                              >
+                                VER TODOS
+                              </Link>
+                            </div>
+
+                            <div className="max-h-[430px] overflow-y-auto">
+                              {(
+                                teamsByCategory[
+                                  category.id
+                                ] || []
+                              ).length > 0 ? (
+                                teamsByCategory[
+                                  category.id
+                                ].map(
+                                  (team) => (
+                                    <Link
+                                      key={
+                                        category.id +
+                                        "-" +
+                                        team
+                                      }
+                                      href={teamHref(
+                                        category.id,
+                                        team
+                                      )}
+                                      className="
+                                        block
+                                        px-4
+                                        py-2.5
+                                        text-[9px]
+                                        font-bold
+                                        uppercase
+                                        tracking-[0.04em]
+                                        text-white/45
+                                        transition
+                                        hover:bg-white/[0.045]
+                                        hover:text-white
+                                      "
+                                    >
+                                      {team}
+                                    </Link>
+                                  )
+                                )
+                              ) : (
+                                <span className="block px-4 py-3 text-[8px] font-bold uppercase tracking-wide text-white/20">
+                                  NENHUM TIME
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    <div className="my-2 h-px bg-white/[0.06]" />
+
                     {hasNacional && (
                       <Link
                         href="/produtos?tipo=CAMISAS&modelo=NACIONAL"
@@ -623,13 +624,13 @@ export default function Header() {
                           px-4
                           py-3
                           text-[9px]
-                          font-bold
+                          font-black
                           uppercase
-                          tracking-[0.05em]
+                          tracking-[0.08em]
                           text-white/50
                           transition
                           hover:bg-white/[0.045]
-                          hover:text-white
+                          hover:text-[#FFEA00]
                         "
                       >
                         NACIONAL PREMIUM
@@ -644,13 +645,13 @@ export default function Header() {
                           px-4
                           py-3
                           text-[9px]
-                          font-bold
+                          font-black
                           uppercase
-                          tracking-[0.05em]
+                          tracking-[0.08em]
                           text-white/50
                           transition
                           hover:bg-white/[0.045]
-                          hover:text-white
+                          hover:text-[#FFEA00]
                         "
                       >
                         TAILANDESA
@@ -774,13 +775,11 @@ export default function Header() {
             </Link>
           </nav>
 
-          {/* ===================================================
+          {/* ==================================================
               AÇÕES
-          =================================================== */}
+          ================================================== */}
 
           <div className="flex shrink-0 items-center gap-1 text-white sm:gap-2">
-            {/* PESQUISA */}
-
             <button
               type="button"
               aria-label="Pesquisar"
@@ -799,8 +798,6 @@ export default function Header() {
             >
               <SearchIcon />
             </button>
-
-            {/* CONTA */}
 
             <button
               type="button"
@@ -822,19 +819,13 @@ export default function Header() {
               <UserIcon />
             </button>
 
-            {/* CARRINHO */}
-
             <Link
               href="/carrinho"
-              aria-label={
-                totalItems === 0
-                  ? "Carrinho vazio"
-                  : `Carrinho com ${totalItems} ${
-                      totalItems === 1
-                        ? "item"
-                        : "itens"
-                    }`
-              }
+              aria-label={`Carrinho com ${totalItems} ${
+                totalItems === 1
+                  ? "item"
+                  : "itens"
+              }`}
               className="
                 relative
                 flex
@@ -878,8 +869,6 @@ export default function Header() {
               )}
             </Link>
 
-            {/* MENU MOBILE */}
-
             <button
               type="button"
               aria-label="Menu"
@@ -909,14 +898,12 @@ export default function Header() {
         </div>
 
         {/* ====================================================
-            MENU MOBILE
+            MOBILE
         ==================================================== */}
 
         {mobileOpen && (
           <div className="border-t border-white/[0.06] bg-[#050505] px-5 py-6 lg:hidden">
             <div className="space-y-7">
-              {/* PRODUTOS */}
-
               <section>
                 <p className="mb-4 text-[9px] font-black uppercase tracking-[0.22em] text-[#FFEA00]">
                   PRODUTOS
@@ -926,31 +913,63 @@ export default function Header() {
                   <Link
                     href="/produtos?tipo=CAMISAS"
                     onClick={closeMobile}
-                    className="
-                      block
-                      text-[11px]
-                      font-black
-                      uppercase
-                      tracking-[0.1em]
-                      text-white
-                    "
+                    className="block text-[11px] font-black uppercase tracking-[0.1em] text-white"
                   >
                     CAMISAS
                   </Link>
+
+                  {categories.map(
+                    (category) => (
+                      <div
+                        key={category.id}
+                        className="pl-4"
+                      >
+                        <Link
+                          href={categoryHref(
+                            category.id
+                          )}
+                          onClick={closeMobile}
+                          className="block text-[9px] font-black uppercase tracking-[0.08em] text-white/60"
+                        >
+                          {category.label}
+                        </Link>
+
+                        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+                          {(
+                            teamsByCategory[
+                              category.id
+                            ] || []
+                          ).map(
+                            (team) => (
+                              <Link
+                                key={
+                                  category.id +
+                                  "-" +
+                                  team
+                                }
+                                href={teamHref(
+                                  category.id,
+                                  team
+                                )}
+                                onClick={
+                                  closeMobile
+                                }
+                                className="text-[8px] font-bold uppercase text-white/35"
+                              >
+                                {team}
+                              </Link>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )}
 
                   {hasNacional && (
                     <Link
                       href="/produtos?tipo=CAMISAS&modelo=NACIONAL"
                       onClick={closeMobile}
-                      className="
-                        block
-                        pl-4
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.06em]
-                        text-white/45
-                      "
+                      className="block pl-4 text-[9px] font-black uppercase tracking-[0.08em] text-white/45"
                     >
                       NACIONAL PREMIUM
                     </Link>
@@ -960,15 +979,7 @@ export default function Header() {
                     <Link
                       href="/produtos?tipo=CAMISAS&modelo=TAILANDESA"
                       onClick={closeMobile}
-                      className="
-                        block
-                        pl-4
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.06em]
-                        text-white/45
-                      "
+                      className="block pl-4 text-[9px] font-black uppercase tracking-[0.08em] text-white/45"
                     >
                       TAILANDESA
                     </Link>
@@ -977,14 +988,7 @@ export default function Header() {
                   <Link
                     href="/produtos?tipo=JAQUETAS"
                     onClick={closeMobile}
-                    className="
-                      block
-                      text-[11px]
-                      font-black
-                      uppercase
-                      tracking-[0.1em]
-                      text-white
-                    "
+                    className="block text-[11px] font-black uppercase tracking-[0.1em] text-white"
                   >
                     JAQUETAS
                   </Link>
@@ -992,94 +996,18 @@ export default function Header() {
                   <Link
                     href="/produtos?tipo=CONJUNTOS"
                     onClick={closeMobile}
-                    className="
-                      block
-                      text-[11px]
-                      font-black
-                      uppercase
-                      tracking-[0.1em]
-                      text-white
-                    "
+                    className="block text-[11px] font-black uppercase tracking-[0.1em] text-white"
                   >
                     CONJUNTOS
                   </Link>
                 </div>
               </section>
 
-              {/* TIMES */}
-
-              <section>
-                <p className="mb-4 text-[9px] font-black uppercase tracking-[0.22em] text-[#FFEA00]">
-                  TIMES
-                </p>
-
-                <div className="space-y-5">
-                  {categories.map((category) => {
-                    const teams =
-                      teamsByCategory[category.id] || [];
-
-                    return (
-                      <div key={category.id}>
-                        <Link
-                          href={categoryHref(category.id)}
-                          onClick={closeMobile}
-                          className="
-                            block
-                            text-[10px]
-                            font-black
-                            uppercase
-                            tracking-[0.12em]
-                            text-white
-                          "
-                        >
-                          {category.label}
-                        </Link>
-
-                        {teams.length > 0 && (
-                          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 pl-4">
-                            {teams.map((team) => (
-                              <Link
-                                key={
-                                  category.id +
-                                  "-" +
-                                  team
-                                }
-                                href={teamHref(team)}
-                                onClick={closeMobile}
-                                className="
-                                  text-[9px]
-                                  font-bold
-                                  uppercase
-                                  tracking-[0.03em]
-                                  text-white/40
-                                  transition
-                                  hover:text-white
-                                "
-                              >
-                                {team}
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* LINKS */}
-
               <div className="flex gap-6 border-t border-white/[0.06] pt-6">
                 <Link
                   href="/produtos?ordem=LANCAMENTOS"
                   onClick={closeMobile}
-                  className="
-                    text-[9px]
-                    font-black
-                    uppercase
-                    tracking-[0.15em]
-                    text-white/60
-                  "
+                  className="text-[9px] font-black uppercase tracking-[0.15em] text-white/60"
                 >
                   LANÇAMENTOS
                 </Link>
@@ -1087,19 +1015,11 @@ export default function Header() {
                 <Link
                   href="/produtos?promocao=1"
                   onClick={closeMobile}
-                  className="
-                    text-[9px]
-                    font-black
-                    uppercase
-                    tracking-[0.15em]
-                    text-white/60
-                  "
+                  className="text-[9px] font-black uppercase tracking-[0.15em] text-white/60"
                 >
                   PROMOÇÕES
                 </Link>
               </div>
-
-              {/* CARRINHO */}
 
               <Link
                 href="/carrinho"
@@ -1146,8 +1066,6 @@ export default function Header() {
 
         <StadiumLED />
       </header>
-
-      {/* ESPAÇO RESERVADO */}
 
       <div className="h-[118px] w-full" />
     </>
