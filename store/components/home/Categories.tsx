@@ -28,7 +28,6 @@ const categories = [
     image: "/images/categories/outros-continentes.png",
     action: "Ver camisas",
     href: "/produtos?categoria=Outros",
-    highlight: true,
   },
 ];
 
@@ -36,13 +35,17 @@ export default function Categories() {
   return (
     <section className="bg-[#050505] px-6 py-24">
       <div className="mx-auto max-w-7xl">
+
         <div className="mb-12">
+
           <div className="mb-4 flex items-center gap-3">
+
             <span className="h-[2px] w-10 bg-[#FFEA00]" />
 
             <span className="text-xs font-black uppercase tracking-[0.3em] text-[#FFEA00]">
               Categorias
             </span>
+
           </div>
 
           <h2 className="text-4xl font-black uppercase leading-[0.9] tracking-[-0.05em] text-white md:text-6xl">
@@ -52,16 +55,20 @@ export default function Categories() {
               próximo manto.
             </span>
           </h2>
+
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
+
           {categories.map((category) => (
             <CategoryCard
               key={category.title}
               {...category}
             />
           ))}
+
         </div>
+
       </div>
     </section>
   );
@@ -73,19 +80,17 @@ function CategoryCard({
   image,
   action,
   href,
-  highlight,
 }: {
   title: string;
   subtitle: string;
   image: string;
   action: string;
   href: string;
-  highlight?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={`
+      className="
         group
         relative
         block
@@ -93,17 +98,15 @@ function CategoryCard({
         w-full
         overflow-hidden
         border
+        border-white/10
+        bg-[#101010]
         text-left
         transition-all
         duration-500
-        ${
-          highlight
-            ? "border-[#FFEA00]/30 bg-[#11100a]"
-            : "border-white/10 bg-[#101010]"
-        }
         hover:border-[#FFEA00]/50
-      `}
+      "
     >
+
       {/* Imagem de fundo */}
       <div
         className="
@@ -123,9 +126,9 @@ function CategoryCard({
       />
 
       {/* Escurecimento geral */}
-      <div className="pointer-events-none absolute inset-0 bg-black/15" />
+      <div className="pointer-events-none absolute inset-0 bg-black/20" />
 
-      {/* Degradê para leitura do texto */}
+      {/* Gradiente forte no lado esquerdo para leitura */}
       <div
         className="
           pointer-events-none
@@ -133,7 +136,22 @@ function CategoryCard({
           inset-0
           bg-gradient-to-r
           from-[#050505]/95
-          via-[#050505]/55
+          via-[#050505]/72
+          via-[48%]
+          to-transparent
+        "
+      />
+
+      {/* Gradiente inferior */}
+      <div
+        className="
+          pointer-events-none
+          absolute
+          inset-x-0
+          bottom-0
+          h-32
+          bg-gradient-to-t
+          from-[#050505]/65
           to-transparent
         "
       />
@@ -159,26 +177,24 @@ function CategoryCard({
           z-10
           flex
           h-full
-          max-w-[58%]
+          max-w-[62%]
           flex-col
           justify-between
           p-8
         "
       >
+
         <div>
+
           <p
-            className={`
+            className="
               mb-3
               text-[10px]
               font-black
               uppercase
               tracking-[0.25em]
-              ${
-                highlight
-                  ? "text-[#FFEA00]"
-                  : "text-white/50"
-              }
-            `}
+              text-[#FFEA00]
+            "
           >
             Categoria
           </p>
@@ -202,12 +218,14 @@ function CategoryCard({
               mt-4
               max-w-[230px]
               text-sm
+              font-medium
               leading-relaxed
-              text-white/60
+              text-white/75
             "
           >
             {subtitle}
           </p>
+
         </div>
 
         {/* CTA */}
@@ -238,6 +256,7 @@ function CategoryCard({
             →
           </span>
         </div>
+
       </div>
 
       {/* Linha inferior */}
@@ -255,6 +274,7 @@ function CategoryCard({
           group-hover:w-full
         "
       />
+
     </Link>
   );
 }

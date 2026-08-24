@@ -26,8 +26,19 @@ export default function CartPage() {
     couponError,
     applyCoupon,
     removeCoupon,
-    discount,
+        discount,
     finalTotal,
+
+    shippingCep,
+    shippingOptions,
+    selectedShipping,
+    shippingLoading,
+    shippingError,
+    shippingCost,
+
+    setShippingCep,
+    calculateShipping,
+    selectShipping,
   } = useCart();
 
   const [couponCode, setCouponCode] = useState("");
@@ -43,20 +54,24 @@ export default function CartPage() {
   // =========================================================
 
   async function handleCheckout() {
-    if (items.length === 0) {
-      return;
-    }
+  if (items.length === 0) {
+    return;
+  }
 
-    if (checkoutLoading) {
-      return;
-    }
+  if (checkoutLoading) {
+    return;
+  }
 
-    try {
-      setCheckoutLoading(true);
-      setCheckoutError(null);
+  if (!selectedShipping) {
+    setCheckoutError(
+      "Calcule e selecione uma opção de frete antes de finalizar."
+    );
+    return;
+  }
 
-      // =====================================================
-      // REFERÊNCIA ÚNICA DO PEDIDO
+  try {
+    setCheckoutLoading(true);
+    setCheckoutError(null);
       // =====================================================
 
       const referenceId =
@@ -162,6 +177,28 @@ export default function CartPage() {
             };
           }
         );
+      if (
+        selectedShipping &&
+        shippingCost > 0
+      ) {
+        mercadoPagoItems.push({
+          reference_id:
+            `FRETE-${selectedShipping.service_id}`,
+
+          name:
+            `Frete - ${selectedShipping.company} ${selectedShipping.name}`,
+
+          quantity: 1,
+
+          unit_amount:
+            Math.round(
+              shippingCost * 100
+            ),
+
+          currency_id:
+            "BRL",
+        });
+      }
 
       // =====================================================
       // AJUSTE FINAL DE CENTAVOS
@@ -280,6 +317,7 @@ export default function CartPage() {
     }
   }
 
+     
   return (
     <main className="min-h-screen bg-[#050505] text-white">
 
@@ -614,17 +652,131 @@ export default function CartPage() {
 
                     </div>
 
-                    <div className="flex justify-between gap-4">
+                    <div className="space-y-3">
 
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
-                        Frete
-                      </span>
+  <div className="flex justify-between gap-4">
+    <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+      Frete
+    </span>
 
-                      <span className="text-[10px] font-black uppercase text-[#00FF66]">
-                        A calcular
-                      </span>
+    <span className="text-[10px] font-black text-white">
+      {selectedShipping
+        ? `R$ ${formatPrice(shippingCost)}`
+        : "A calcular"}
+    </span>
+  </div>
 
-                    </div>
+  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+
+    <p className="mb-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/45">
+      Calcular entrega
+    </p>
+
+    <div className="flex gap-2">
+
+      <input
+        type="text"
+        inputMode="numeric"
+        value={shippingCep}
+        onChange={(event) =>
+          setShippingCep(
+            event.target.value
+          )
+        }
+        placeholder="SEU CEP"
+        maxLength={9}
+        className="min-w-0 flex-1 rounded-lg border border-white/[0.10] bg-black px-3 py-3 text-[10px] font-bold tracking-wider text-white outline-none placeholder:text-white/20 focus:border-[#FFEA00]/50"
+      />
+
+      <button
+        type="button"
+        onClick={calculateShipping}
+        disabled={shippingLoading}
+        className="shrink-0 rounded-lg bg-[#FFEA00] px-4 py-3 text-[9px] font-black uppercase tracking-wider text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {shippingLoading
+          ? "..."
+          : "Calcular"}
+      </button>
+
+    </div>
+
+    {shippingError && (
+      <p className="mt-3 text-[9px] font-bold leading-4 text-red-400">
+        {shippingError}
+      </p>
+    )}
+
+    {shippingOptions.length > 0 && (
+      <div className="mt-4 space-y-2">
+
+        {shippingOptions.map(
+          (option) => {
+            const selected =
+              selectedShipping?.id ===
+              option.id;
+
+            const range =
+              option.delivery_range;
+
+            return (
+              <button
+                key={`${option.id}-${option.company}`}
+                type="button"
+                onClick={() =>
+                  selectShipping(option)
+                }
+                className={`w-full rounded-xl border p-3 text-left transition ${
+                  selected
+                    ? "border-[#FFEA00]/60 bg-[#FFEA00]/[0.06]"
+                    : "border-white/[0.08] bg-black hover:border-white/[0.20]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+
+                  <div className="min-w-0">
+
+                    <p
+                      className={`text-[10px] font-black uppercase ${
+                        selected
+                          ? "text-[#FFEA00]"
+                          : "text-white"
+                      }`}
+                    >
+                      {option.company}
+                    </p>
+
+                    <p className="mt-1 text-[8px] font-bold uppercase tracking-wider text-white/35">
+                      {option.name}
+                      {" · "}
+                      {range?.min ?? option.delivery_time}
+                      {range?.max &&
+                      range.max !==
+                        range.min
+                        ? `–${range.max}`
+                        : ""}
+                      {" dias"}
+                    </p>
+
+                  </div>
+
+                  <span className="shrink-0 text-xs font-black text-white">
+                    R$ {formatPrice(option.price)}
+                  </span>
+
+                </div>
+
+              </button>
+            );
+          }
+        )}
+
+      </div>
+    )}
+
+  </div>
+
+</div>
 
                   </div>
 

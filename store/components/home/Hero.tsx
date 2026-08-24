@@ -23,7 +23,6 @@ export default function Hero() {
           "
         />
 
-        {/* Escurece o lado esquerdo para o texto */}
         <div
           className="
             absolute
@@ -36,7 +35,6 @@ export default function Hero() {
           "
         />
 
-        {/* Escurecimento inferior */}
         <div
           className="
             absolute
@@ -49,7 +47,6 @@ export default function Hero() {
           "
         />
 
-        {/* Leve tom da identidade BL Mantos */}
         <div
           className="
             absolute
@@ -68,7 +65,7 @@ export default function Hero() {
       <div
         className="
           relative
-          z-10
+          z-30
           mx-auto
           flex
           min-h-[680px]
@@ -133,8 +130,9 @@ export default function Hero() {
               mt-8
               max-w-[390px]
               text-base
+              font-medium
               leading-relaxed
-              text-white/65
+              text-white
               md:text-lg
             "
           >
@@ -145,106 +143,119 @@ export default function Hero() {
 
           {/* CTA */}
 
-          <div className="mt-9">
-  <Link
-    href="/produtos"
-    className="
-      inline-flex
-      items-center
-      justify-center
-      rounded-xl
-      bg-[#FFEA00]
-      px-7
-      py-4
-      text-[10px]
-      font-black
-      uppercase
-      tracking-[0.2em]
-      text-black
-      transition
-      hover:-translate-y-0.5
-      hover:bg-white
-    "
-  >
-    Ver camisas
-  </Link>
-</div>
+          <div className="relative z-40 mt-9">
+
+            <Link
+              href="/produtos"
+              className="
+                inline-flex
+                min-h-[52px]
+                min-w-[170px]
+                items-center
+                justify-center
+                rounded-xl
+                border
+                border-[#FFEA00]
+                bg-[#FFEA00]
+                px-8
+                py-4
+                text-center
+                text-[12px]
+                font-black
+                uppercase
+                tracking-[0.18em]
+                text-[#050505]
+                shadow-[0_10px_35px_rgba(255,234,0,0.22)]
+                transition-all
+                duration-200
+                hover:-translate-y-1
+                hover:border-white
+                hover:bg-white
+                hover:text-[#050505]
+                hover:shadow-[0_12px_35px_rgba(255,255,255,0.16)]
+              "
+            >
+              <span className="relative z-10 text-[#050505]">
+                Ver camisas
+              </span>
+            </Link>
+
+          </div>
 
 
           {/* =====================================================
-    ASSINATURA BL MANTOS
-====================================================== */}
+              ASSINATURA BL MANTOS
+          ====================================================== */}
 
-<div
-  className="
-    absolute
-    bottom-0
-    left-0
-    right-0
-    z-20
-    border-t
-    border-white/10
-    bg-[#050505]/75
-    backdrop-blur-md
-  "
->
-  <div
-    className="
-      mx-auto
-      flex
-      max-w-7xl
-      items-center
-      justify-between
-      px-6
-      py-4
-    "
-  >
+          <div
+            className="
+              absolute
+              bottom-0
+              left-0
+              right-0
+              z-20
+              border-t
+              border-white/10
+              bg-[#050505]/75
+              backdrop-blur-md
+            "
+          >
+            <div
+              className="
+                mx-auto
+                flex
+                max-w-7xl
+                items-center
+                justify-between
+                px-6
+                py-4
+              "
+            >
 
-    <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
 
-      <span
-        className="
-          h-2
-          w-2
-          animate-pulse
-          rounded-full
-          bg-[#00FF66]
-          shadow-[0_0_10px_#00FF66]
-        "
-      />
+                <span
+                  className="
+                    h-2
+                    w-2
+                    animate-pulse
+                    rounded-full
+                    bg-[#00FF66]
+                    shadow-[0_0_10px_#00FF66]
+                  "
+                />
 
-      <span
-        className="
-          text-[10px]
-          font-bold
-          uppercase
-          tracking-[0.25em]
-          text-white/60
-        "
-      >
-        Coleção disponível
-      </span>
+                <span
+                  className="
+                    text-[10px]
+                    font-bold
+                    uppercase
+                    tracking-[0.25em]
+                    text-white/60
+                  "
+                >
+                  Coleção disponível
+                </span>
 
-    </div>
+              </div>
 
+              <p
+                className="
+                  text-xs
+                  font-bold
+                  tracking-[0.08em]
+                  text-white
+                  sm:text-sm
+                "
+              >
+                Orgulho de vestir
+                <span className="ml-1 text-[#FFEA00]">
+                  o que nos move.
+                </span>
+              </p>
 
-    <p
-      className="
-        text-xs
-        font-bold
-        tracking-[0.08em]
-        text-white
-        sm:text-sm
-      "
-    >
-      Orgulho de vestir
-      <span className="ml-1 text-[#FFEA00]">
-        o que nos move.
-      </span>
-    </p>
-
-  </div>
-</div>
+            </div>
+          </div>
 
         </div>
 
@@ -283,7 +294,16 @@ export default function Hero() {
 
           <div className="flex items-center gap-3">
 
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[#00FF66] shadow-[0_0_10px_#00FF66]" />
+            <span
+              className="
+                h-2
+                w-2
+                animate-pulse
+                rounded-full
+                bg-[#00FF66]
+                shadow-[0_0_10px_#00FF66]
+              "
+            />
 
             <span
               className="
@@ -298,7 +318,6 @@ export default function Hero() {
             </span>
 
           </div>
-
 
           <span
             className="

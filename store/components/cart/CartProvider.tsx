@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   createContext,
@@ -23,6 +23,21 @@ export type AppliedCoupon = {
   type: "percentage" | "fixed";
   value: number;
   discount: number;
+};
+
+export type ShippingOption = {
+  id: string;
+  service_id: string;
+  name: string;
+  company: string;
+  company_id?: number | null;
+  price: number;
+  delivery_time: number;
+  delivery_range?: {
+    min?: number;
+    max?: number;
+  } | null;
+  type: "LOCAL" | "MELHOR_ENVIO";
 };
 
 type CartContextType = {
@@ -54,6 +69,19 @@ type CartContextType = {
   removeCoupon: () => void;
 
   discount: number;
+
+  shippingCep: string;
+  shippingOptions: ShippingOption[];
+  selectedShipping: ShippingOption | null;
+  shippingLoading: boolean;
+  shippingError: string | null;
+
+  setShippingCep: (cep: string) => void;
+  calculateShipping: () => Promise<boolean>;
+  selectShipping: (option: ShippingOption) => void;
+  clearShipping: () => void;
+
+  shippingCost: number;
   finalTotal: number;
 };
 
@@ -65,14 +93,16 @@ const COUPON_STORAGE_KEY = "blmantos-coupon";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://163.176.237.176:8000";
+  "https://api.blmantos.com.br";
 
 export function CartProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] =
+    useState<CartItem[]>([]);
+
   const [coupon, setCoupon] =
     useState<AppliedCoupon | null>(null);
 
@@ -82,11 +112,23 @@ export function CartProvider({
   const [couponError, setCouponError] =
     useState<string | null>(null);
 
-  const [loaded, setLoaded] = useState(false);
+  const [shippingCep, setShippingCepState] =
+    useState("");
 
-  // =========================================================
-  // CARREGAR CARRINHO E CUPOM
-  // =========================================================
+  const [shippingOptions, setShippingOptions] =
+    useState<ShippingOption[]>([]);
+
+  const [selectedShipping, setSelectedShipping] =
+    useState<ShippingOption | null>(null);
+
+  const [shippingLoading, setShippingLoading] =
+    useState(false);
+
+  const [shippingError, setShippingError] =
+    useState<string | null>(null);
+
+  const [loaded, setLoaded] =
+    useState(false);
 
   useEffect(() => {
     try {
@@ -94,7 +136,8 @@ export function CartProvider({
         localStorage.getItem(STORAGE_KEY);
 
       if (savedCart) {
-        const parsed = JSON.parse(savedCart);
+        const parsed =
+          JSON.parse(savedCart);
 
         if (Array.isArray(parsed)) {
           setItems(parsed);
@@ -126,10 +169,6 @@ export function CartProvider({
     }
   }, []);
 
-  // =========================================================
-  // SALVAR CARRINHO
-  // =========================================================
-
   useEffect(() => {
     if (!loaded) {
       return;
@@ -146,10 +185,6 @@ export function CartProvider({
       );
     }
   }, [items, loaded]);
-
-  // =========================================================
-  // SALVAR CUPOM
-  // =========================================================
 
   useEffect(() => {
     if (!loaded) {
@@ -174,11 +209,9 @@ export function CartProvider({
     }
   }, [coupon, loaded]);
 
-  // =========================================================
-  // ADICIONAR AO CARRINHO
-  // =========================================================
-
-  function addItem(item: CartItem): boolean {
+  function addItem(
+    item: CartItem
+  ): boolean {
     let added = false;
 
     setItems((currentItems) => {
@@ -207,12 +240,15 @@ export function CartProvider({
           {
             ...item,
             quantity: safeQuantity,
-            maxQuantity: item.maxQuantity,
+            maxQuantity:
+              item.maxQuantity,
           },
         ];
       }
 
-      const updated = [...currentItems];
+      const updated = [
+        ...currentItems,
+      ];
 
       const existing =
         updated[existingIndex];
@@ -223,24 +259,28 @@ export function CartProvider({
           : existing.maxQuantity;
 
       if (
-        existing.quantity >= maxQuantity
+        existing.quantity >=
+        maxQuantity
       ) {
         added = false;
-
         return currentItems;
       }
 
-      const newQuantity = Math.min(
-        existing.quantity +
-          Math.max(1, item.quantity),
-        maxQuantity
-      );
+      const newQuantity =
+        Math.min(
+          existing.quantity +
+            Math.max(
+              1,
+              item.quantity
+            ),
+          maxQuantity
+        );
 
       if (
-        newQuantity <= existing.quantity
+        newQuantity <=
+        existing.quantity
       ) {
         added = false;
-
         return currentItems;
       }
 
@@ -261,10 +301,6 @@ export function CartProvider({
     return added;
   }
 
-  // =========================================================
-  // REMOVER
-  // =========================================================
-
   function removeItem(
     itemCode: string,
     size: string
@@ -278,11 +314,9 @@ export function CartProvider({
           )
       )
     );
-  }
 
-  // =========================================================
-  // ATUALIZAR QUANTIDADE
-  // =========================================================
+    clearShipping();
+  }
 
   function updateQuantity(
     itemCode: string,
@@ -298,13 +332,14 @@ export function CartProvider({
           return item;
         }
 
-        const safeQuantity = Math.max(
-          1,
-          Math.min(
-            quantity,
-            item.maxQuantity
-          )
-        );
+        const safeQuantity =
+          Math.max(
+            1,
+            Math.min(
+              quantity,
+              item.maxQuantity
+            )
+          );
 
         return {
           ...item,
@@ -312,50 +347,40 @@ export function CartProvider({
         };
       })
     );
-  }
 
-  // =========================================================
-  // LIMPAR
-  // =========================================================
+    clearShipping();
+  }
 
   function clearCart() {
     setItems([]);
     setCoupon(null);
     setCouponError(null);
+    clearShipping();
   }
 
-  // =========================================================
-  // TOTAL DE PRODUTOS
-  // =========================================================
+  const totalItems =
+    useMemo(
+      () =>
+        items.reduce(
+          (total, item) =>
+            total + item.quantity,
+          0
+        ),
+      [items]
+    );
 
-  const totalItems = useMemo(
-    () =>
-      items.reduce(
-        (total, item) =>
-          total + item.quantity,
-        0
-      ),
-    [items]
-  );
-
-  // =========================================================
-  // SUBTOTAL
-  // =========================================================
-
-  const totalPrice = useMemo(
-    () =>
-      items.reduce(
-        (total, item) =>
-          total +
-          item.price * item.quantity,
-        0
-      ),
-    [items]
-  );
-
-  // =========================================================
-  // APLICAR CUPOM
-  // =========================================================
+  const totalPrice =
+    useMemo(
+      () =>
+        items.reduce(
+          (total, item) =>
+            total +
+            item.price *
+              item.quantity,
+          0
+        ),
+      [items]
+    );
 
   async function applyCoupon(
     code: string
@@ -367,7 +392,6 @@ export function CartProvider({
       setCouponError(
         "Digite um cupom."
       );
-
       return false;
     }
 
@@ -375,7 +399,6 @@ export function CartProvider({
       setCouponError(
         "O carrinho está vazio."
       );
-
       return false;
     }
 
@@ -383,22 +406,21 @@ export function CartProvider({
       setCouponLoading(true);
       setCouponError(null);
 
-      const response = await fetch(
-        `${API_URL}/api/coupons/validate`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            code: normalizedCode,
-            subtotal: totalPrice,
-          }),
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/api/coupons/validate`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              code: normalizedCode,
+              subtotal: totalPrice,
+            }),
+          }
+        );
 
       const data =
         await response.json();
@@ -414,7 +436,9 @@ export function CartProvider({
         code: data.code,
         type: data.type,
         value: Number(data.value),
-        discount: Number(data.discount),
+        discount: Number(
+          data.discount
+        ),
       });
 
       return true;
@@ -433,46 +457,173 @@ export function CartProvider({
     }
   }
 
-  // =========================================================
-  // REMOVER CUPOM
-  // =========================================================
-
   function removeCoupon() {
     setCoupon(null);
     setCouponError(null);
   }
 
-  // =========================================================
-  // DESCONTO
-  // =========================================================
+  const discount =
+    useMemo(() => {
+      if (!coupon) {
+        return 0;
+      }
 
-  const discount = useMemo(() => {
-    if (!coupon) {
-      return 0;
+      return Math.min(
+        Math.max(
+          0,
+          coupon.discount
+        ),
+        totalPrice
+      );
+    }, [coupon, totalPrice]);
+
+  function setShippingCep(
+    cep: string
+  ) {
+    const cleanCep =
+      cep.replace(/\D/g, "").slice(0, 8);
+
+    setShippingCepState(
+      cleanCep
+    );
+
+    setShippingOptions([]);
+    setSelectedShipping(null);
+    setShippingError(null);
+  }
+
+  async function calculateShipping(): Promise<boolean> {
+    if (
+      shippingCep.replace(
+        /\D/g,
+        ""
+      ).length !== 8
+    ) {
+      setShippingError(
+        "Digite um CEP válido."
+      );
+
+      return false;
     }
 
-    return Math.min(
-      Math.max(0, coupon.discount),
-      totalPrice
+    if (items.length === 0) {
+      setShippingError(
+        "O carrinho está vazio."
+      );
+
+      return false;
+    }
+
+    try {
+      setShippingLoading(true);
+      setShippingError(null);
+      setShippingOptions([]);
+      setSelectedShipping(null);
+
+      const response =
+        await fetch(
+          `${API_URL}/api/shipping/calculate`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              postal_code:
+                shippingCep,
+              items: items.map(
+                (item) => ({
+                  item_code:
+                    item.item_code,
+                  price:
+                    Number(item.price),
+                  quantity:
+                    item.quantity,
+                })
+              ),
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ||
+            "Não foi possível calcular o frete."
+        );
+      }
+
+      const options =
+        Array.isArray(data?.options)
+          ? data.options
+          : [];
+
+      if (options.length === 0) {
+        throw new Error(
+          "Nenhuma opção de frete disponível para este CEP."
+        );
+      }
+
+      setShippingOptions(
+        options
+      );
+
+      setSelectedShipping(
+        options[0]
+      );
+
+      return true;
+    } catch (error) {
+      setShippingOptions([]);
+      setSelectedShipping(null);
+
+      setShippingError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível calcular o frete."
+      );
+
+      return false;
+    } finally {
+      setShippingLoading(false);
+    }
+  }
+
+  function selectShipping(
+    option: ShippingOption
+  ) {
+    setSelectedShipping(
+      option
     );
-  }, [coupon, totalPrice]);
+  }
 
-  // =========================================================
-  // TOTAL FINAL
-  // =========================================================
+  function clearShipping() {
+    setShippingOptions([]);
+    setSelectedShipping(null);
+    setShippingError(null);
+  }
 
-  const finalTotal = useMemo(
-    () =>
-      Math.max(
-        0,
-        totalPrice - discount
-      ),
-    [totalPrice, discount]
-  );
+  const shippingCost =
+    selectedShipping?.price || 0;
 
-  // =========================================================
-  // PROVIDER
-  // =========================================================
+  const finalTotal =
+    useMemo(
+      () =>
+        Math.max(
+          0,
+          totalPrice -
+            discount +
+            shippingCost
+        ),
+      [
+        totalPrice,
+        discount,
+        shippingCost,
+      ]
+    );
 
   return (
     <CartContext.Provider
@@ -495,6 +646,19 @@ export function CartProvider({
         removeCoupon,
 
         discount,
+
+        shippingCep,
+        shippingOptions,
+        selectedShipping,
+        shippingLoading,
+        shippingError,
+
+        setShippingCep,
+        calculateShipping,
+        selectShipping,
+        clearShipping,
+
+        shippingCost,
         finalTotal,
       }}
     >
@@ -502,10 +666,6 @@ export function CartProvider({
     </CartContext.Provider>
   );
 }
-
-// =========================================================
-// HOOK
-// =========================================================
 
 export function useCart() {
   const context =

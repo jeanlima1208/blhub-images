@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getBestSellers } from "@/services/products";
 
+const CUSTOMER_INSTALLMENT_RATE_3X = 0.11225;
+
 export default async function FeaturedProducts() {
   const products = await getBestSellers();
 
@@ -39,96 +41,115 @@ export default async function FeaturedProducts() {
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4">
 
-          {products.slice(0, 4).map((product) => (
+          {products.slice(0, 4).map((product) => {
 
-            <Link
-              key={product.item_code}
-              href={`/produto/${product.item_code}`}
-              className="group"
-            >
+            const productPrice = Number(
+              product.price ?? 0
+            );
 
-              <article>
+            const installment3x =
+              (
+                (productPrice *
+                  (1 +
+                    CUSTOMER_INSTALLMENT_RATE_3X)) /
+                3
+              )
+                .toFixed(2)
+                .replace(".", ",");
 
-                <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111111] transition duration-300 group-hover:border-white/[0.18]">
+            return (
+              <Link
+                key={product.item_code}
+                href={`/produto/${product.item_code}`}
+                className="group"
+              >
 
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.item_name}
-                      className="
-                        h-full
-                        w-full
-                        object-cover
-                        transition-transform
-                        duration-500
-                        group-hover:scale-105
-                      "
-                    />
-                  ) : (
-                    <div
+                <article>
+
+                  <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111111] transition duration-300 group-hover:border-white/[0.18]">
+
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.item_name}
+                        className="
+                          h-full
+                          w-full
+                          object-cover
+                          transition-transform
+                          duration-500
+                          group-hover:scale-105
+                        "
+                      />
+                    ) : (
+                      <div
+                        className="
+                          absolute
+                          inset-0
+                          flex
+                          items-center
+                          justify-center
+                          text-[10px]
+                          font-bold
+                          uppercase
+                          tracking-[0.2em]
+                          text-white/20
+                        "
+                      >
+                        Sem imagem
+                      </div>
+                    )}
+
+                    <span
                       className="
                         absolute
-                        inset-0
-                        flex
-                        items-center
-                        justify-center
-                        text-[10px]
-                        font-bold
+                        bottom-0
+                        left-0
+                        right-0
+                        translate-y-full
+                        bg-[#FFEA00]
+                        px-4
+                        py-4
+                        text-center
+                        text-xs
+                        font-black
                         uppercase
-                        tracking-[0.2em]
-                        text-white/20
+                        tracking-[0.15em]
+                        text-black
+                        transition-transform
+                        duration-300
+                        group-hover:translate-y-0
                       "
                     >
-                      Sem imagem
-                    </div>
-                  )}
+                      Ver produto →
+                    </span>
 
-                  <span
-                    className="
-                      absolute
-                      bottom-0
-                      left-0
-                      right-0
-                      translate-y-full
-                      bg-[#FFEA00]
-                      px-4
-                      py-4
-                      text-center
-                      text-xs
-                      font-black
-                      uppercase
-                      tracking-[0.15em]
-                      text-black
-                      transition-transform
-                      duration-300
-                      group-hover:translate-y-0
-                    "
-                  >
-                    Ver produto →
-                  </span>
+                  </div>
 
-                </div>
+                  <div className="pt-4">
 
-                <div className="pt-4">
+                    <h3 className="truncate text-sm font-bold uppercase text-white">
+                      {product.item_name}
+                    </h3>
 
-                  <h3 className="truncate text-sm font-bold uppercase text-white">
-                    {product.item_name}
-                  </h3>
+                    <p className="mt-2 text-lg font-black text-white">
+                      R${" "}
+                      {productPrice
+                        .toFixed(2)
+                        .replace(".", ",")}
+                    </p>
 
-                  <p className="mt-2 text-lg font-black text-white">
-                    R${" "}
-                    {Number(product.price ?? 0)
-                      .toFixed(2)
-                      .replace(".", ",")}
-                  </p>
+                    <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.14em] text-white/40">
+                      3x de R$ {installment3x}
+                    </p>
 
-                </div>
+                  </div>
 
-              </article>
+                </article>
 
-            </Link>
-
-          ))}
+              </Link>
+            );
+          })}
 
         </div>
 
