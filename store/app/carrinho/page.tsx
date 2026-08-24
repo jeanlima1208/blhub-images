@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import Header from "@/components/layout/Header";
@@ -52,239 +52,109 @@ export default function CartPage() {
   // =========================================================
 
   async function handleCheckout() {
-  if (items.length === 0) {
-    return;
-  }
+    if (items.length === 0) {
+      return;
+    }
 
-  if (checkoutLoading) {
-    return;
-  }
+    if (checkoutLoading) {
+      return;
+    }
 
-  if (!selectedShipping) {
-    setCheckoutError(
-      "Calcule e selecione uma opção de frete antes de finalizar."
-    );
-    return;
-  }
+    if (!selectedShipping) {
+      setCheckoutError(
+        "Calcule e selecione uma opção de frete antes de finalizar."
+      );
+      return;
+    }
 
-  try {
-    setCheckoutLoading(true);
-    setCheckoutError(null);
+    try {
+      setCheckoutLoading(true);
+      setCheckoutError(null);
+
+      // =====================================================
+      // 1. CRIAR PEDIDO NO BACKEND
       // =====================================================
 
-      const referenceId =
-        `BLMANTOS-${Date.now()}`;
+      const orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            item_code: item.item_code,
+            item_name: item.item_name,
+            name: item.item_name,
+            price: Number(item.price),
+            quantity: item.quantity,
+            size: item.size,
+          })),
 
-      // =====================================================`r`n      // PRODUTOS PARA O MERCADO PAGO
-      // =====================================================
+          shipping_type: "MELHOR_ENVIO",
+          shipping_cost: Number(shippingCost || 0),
 
-      const originalTotalCents =
-        Math.round(totalPrice * 100);
+          shipping_option: selectedShipping
+            ? `${selectedShipping.company} ${selectedShipping.name}`
+            : null,
 
-      const finalTotalCents =
-        Math.round(finalTotal * 100);
+          discount: Number(discount || 0),
 
-      const discountCents =
-        Math.max(
-          0,
-          originalTotalCents -
-            finalTotalCents
+          payment_method: "MERCADO_PAGO",
+        }),
+      });
+
+      const orderData = await orderResponse.json();
+
+      if (!orderResponse.ok) {
+        throw new Error(
+          orderData?.detail ||
+            "Não foi possível criar o pedido."
         );
-
-      let remainingDiscountCents =
-        discountCents;
-
-      let mercadoPagoItems =
-        items.map(
-          (item, index) => {
-
-            const originalUnitCents =
-              Math.round(
-                Number(item.price) * 100
-              );
-
-            const originalItemCents =
-              originalUnitCents *
-              item.quantity;
-
-            let itemDiscountCents = 0;
-
-            if (
-              discountCents > 0 &&
-              originalTotalCents > 0
-            ) {
-
-              if (
-                index ===
-                items.length - 1
-              ) {
-
-                itemDiscountCents =
-                  remainingDiscountCents;
-
-              } else {
-
-                itemDiscountCents =
-                  Math.round(
-                    (
-                      originalItemCents /
-                      originalTotalCents
-                    ) *
-                    discountCents
-                  );
-
-                itemDiscountCents =
-                  Math.min(
-                    itemDiscountCents,
-                    remainingDiscountCents
-                  );
-              }
-            }
-
-            remainingDiscountCents -=
-              itemDiscountCents;
-
-            const finalItemCents =
-              Math.max(
-                0,
-                originalItemCents -
-                  itemDiscountCents
-              );
-
-            const finalUnitCents =
-              Math.round(
-                finalItemCents /
-                  item.quantity
-              );
-
-            return {
-              reference_id:
-                `${item.item_code}-${item.size}`,
-
-              name:
-                `${item.item_name} - ${item.size}`,
-
-              quantity:
-                item.quantity,
-
-              unit_amount:
-                finalUnitCents,
-
-              currency_id:
-                "BRL",
-            };
-          }
-        );
-      if (
-        selectedShipping &&
-        shippingCost > 0
-      ) {
-        mercadoPagoItems.push({
-          reference_id:
-            `FRETE-${selectedShipping.service_id}`,
-
-          name:
-            `Frete - ${selectedShipping.company} ${selectedShipping.name}`,
-
-          quantity: 1,
-
-          unit_amount:
-            Math.round(
-              shippingCost * 100
-            ),
-
-          currency_id:
-            "BRL",
-        });
       }
 
-      // =====================================================
-      // AJUSTE FINAL DE CENTAVOS
-      // =====================================================
+      const orderId = orderData?.order?.id;
 
-      const calculatedItemsCents =
-        mercadoPagoItems.reduce(
-          (total, item) =>
-            total +
-            item.quantity *
-              item.unit_amount,
-          0
+      if (!orderId) {
+        throw new Error(
+          "O servidor não retornou o número do pedido."
         );
-
-      const centsDifference =
-        finalTotalCents -
-        calculatedItemsCents;
-
-      if (
-        centsDifference !== 0 &&
-        mercadoPagoItems.length > 0
-      ) {
-
-        const lastIndex =
-          mercadoPagoItems.length - 1;
-
-        const lastItem =
-          mercadoPagoItems[lastIndex];
-
-        const adjustedUnitCents =
-          lastItem.unit_amount +
-          Math.round(
-            centsDifference /
-              lastItem.quantity
-          );
-
-        mercadoPagoItems[lastIndex] = {
-          ...lastItem,
-          unit_amount:
-            adjustedUnitCents,
-        };
       }
 
-      // CRIAR PREFERÊNCIA
+      console.log("PEDIDO CRIADO:", orderId);
+
+      // =====================================================
+      // 2. CRIAR PAGAMENTO NO MERCADO PAGO
       // =====================================================
 
-      const response = await fetch(
-  "/api/mercadopago/checkout",
+      const paymentResponse = await fetch(
+        "/api/mercadopago/checkout",
         {
           method: "POST",
-
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
-
           body: JSON.stringify({
-            reference_id: referenceId,
-
-            total_amount:
-              Math.round(
-                finalTotal * 100
-              ),
-
-            items: mercadoPagoItems,
+            order_id: orderId,
           }),
         }
       );
 
-      const data = await response.json();
+      const paymentData =
+        await paymentResponse.json();
 
-      // =====================================================
-      // ERRO DA API
-      // =====================================================
-
-      if (!response.ok) {
+      if (!paymentResponse.ok) {
         throw new Error(
-          data?.detail ||
-            "Não foi possível criar o pagamento."
+          paymentData?.detail ||
+            "Não foi possível iniciar o pagamento."
         );
       }
 
       // =====================================================
-      // LINK DO MERCADO PAGO
+      // 3. LINK DO MERCADO PAGO
       // =====================================================
 
       const checkoutUrl =
-        data?.checkout?.init_point;
+        paymentData?.checkout?.init_point;
 
       if (!checkoutUrl) {
         throw new Error(
@@ -292,12 +162,13 @@ export default function CartPage() {
         );
       }
 
+      console.log("PAGAMENTO CRIADO:", orderId);
+
       // =====================================================
-      // REDIRECIONAR PARA O MERCADO PAGO
+      // 4. REDIRECIONAR
       // =====================================================
 
-      window.location.href =
-        checkoutUrl;
+      window.location.href = checkoutUrl;
 
     } catch (error) {
       console.error(
@@ -315,7 +186,6 @@ export default function CartPage() {
     }
   }
 
-     
   return (
     <main className="min-h-screen bg-[#050505] text-white">
 
@@ -344,7 +214,7 @@ export default function CartPage() {
         <div className="mx-auto max-w-6xl">
 
           {/* =================================================
-              CABEÇALHO
+              CABEÃ‡ALHO
           ================================================= */}
 
           <div className="mb-10">
@@ -389,18 +259,18 @@ export default function CartPage() {
               </div>
 
               <h2 className="mt-6 text-xl font-black uppercase tracking-tight text-white">
-                Seu carrinho está vazio
+                Seu carrinho estÃ¡ vazio
               </h2>
 
               <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-white/40">
-                Explore nosso catálogo e encontre sua próxima camisa.
+                Explore nosso catÃ¡logo e encontre sua prÃ³xima camisa.
               </p>
 
               <Link
                 href="/produtos"
                 className="mt-8 inline-flex rounded-xl bg-[#FFEA00] px-7 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-black transition hover:-translate-y-0.5 hover:bg-white"
               >
-                Explorar catálogo
+                Explorar catÃ¡logo
               </Link>
 
             </div>
@@ -447,7 +317,7 @@ export default function CartPage() {
 
                       </Link>
 
-                      {/* INFORMAÇÕES */}
+                      {/* INFORMAÃ‡Ã•ES */}
 
                       <div className="min-w-0 flex-1">
 
@@ -530,7 +400,7 @@ export default function CartPage() {
                                   }
                                   className="w-9 text-sm font-black text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-20"
                                 >
-                                  −
+                                  âˆ’
                                 </button>
 
                                 <div className="flex w-9 items-center justify-center border-x border-white/[0.08] text-[10px] font-black text-white">
@@ -561,7 +431,7 @@ export default function CartPage() {
 
                           </div>
 
-                          {/* PREÇO */}
+                          {/* PREÃ‡O */}
 
                           <div className="text-right">
 
@@ -746,12 +616,12 @@ export default function CartPage() {
 
                     <p className="mt-1 text-[8px] font-bold uppercase tracking-wider text-white/35">
                       {option.name}
-                      {" · "}
+                      {" Â· "}
                       {range?.min ?? option.delivery_time}
                       {range?.max &&
                       range.max !==
                         range.min
-                        ? `–${range.max}`
+                        ? `â€“${range.max}`
                         : ""}
                       {" dias"}
                     </p>
@@ -959,7 +829,7 @@ export default function CartPage() {
                   <div className="mt-6 border-t border-white/[0.07] pt-5">
 
                     <p className="text-center text-[9px] font-bold leading-5 text-white/45">
-                      Você será direcionado ao Mercado Pago para concluir o pagamento com segurança.
+                      VocÃª serÃ¡ direcionado ao Mercado Pago para concluir o pagamento com seguranÃ§a.
                     </p>
 
                   </div>
@@ -979,5 +849,8 @@ export default function CartPage() {
     </main>
   );
 }
+
+
+
 
 
