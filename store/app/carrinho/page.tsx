@@ -9,9 +9,7 @@ function formatPrice(value: number) {
   return value.toFixed(2).replace(".", ",");
 }
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://163.176.237.176:8000";
+const API_URL = "";
 
 export default function CartPage() {
   const {
@@ -246,7 +244,7 @@ export default function CartPage() {
       // =====================================================
 
       const response = await fetch(
-        `${API_URL}/api/mercadopago/checkout`,
+  "/api/mercadopago/checkout",
         {
           method: "POST",
 
@@ -981,4 +979,5 @@ export default function CartPage() {
     </main>
   );
 }
+
 
