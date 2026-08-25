@@ -15,9 +15,7 @@ export type Product = {
   custom_categoria_time?: string | null;
 };
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://api.blmantos.com.br";
+const API_URL = "https://api.blmantos.com.br";
 
 // =========================================================
 // BUSCAR TODOS OS PRODUTOS

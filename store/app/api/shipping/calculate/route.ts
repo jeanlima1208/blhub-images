@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://api.blmantos.com.br";
+const API_URL = "https://api.blmantos.com.br";
 
 export async function POST(request: Request) {
   try {
