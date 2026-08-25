@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://163.176.237.176:8000";
+  "https://api.blmantos.com.br";
 
 export async function POST(request: Request) {
   try {

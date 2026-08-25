@@ -1,4 +1,4 @@
-﻿// services/products.ts
+// services/products.ts
 
 export type Product = {
   item_code: string;
@@ -17,7 +17,7 @@ export type Product = {
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://163.176.237.176:8000";
+  "https://api.blmantos.com.br";
 
 // =========================================================
 // BUSCAR TODOS OS PRODUTOS
