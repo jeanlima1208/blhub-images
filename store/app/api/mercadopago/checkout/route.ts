@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = "http://163.176.237.176:8000";
 
@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
       { status: response.status }
     );
   } catch (error) {
-    console.error(
-      "Erro no proxy Mercado Pago:",
-      error
-    );
+    console.error("MP_PROXY_ERROR", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
 
     return NextResponse.json(
       {
