@@ -15,7 +15,7 @@ export type Product = {
   custom_categoria_time?: string | null;
 };
 
-const API_URL = "https://api.blmantos.com.br";
+const API_URL = "http://163.176.237.176:8000";
 
 // =========================================================
 // BUSCAR TODOS OS PRODUTOS
