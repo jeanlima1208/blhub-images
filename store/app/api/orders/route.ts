@@ -1,8 +1,6 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://api.blmantos.com.br";
+const API_URL = "http://163.176.237.176:8000";
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,3 +40,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
