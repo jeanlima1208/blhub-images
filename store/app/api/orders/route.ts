@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         detail:
-          "Não foi possível criar o pedido.",
+          "NÃ£o foi possÃ­vel criar o pedido.",
       },
       { status: 500 }
     );
