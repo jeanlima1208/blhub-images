@@ -85,6 +85,36 @@ const [, quantity] = size.split("|");
 });
 
 const price = Number(product.price ?? 0);
+
+const sitePrice =
+  product.site_price != null
+    ? Number(product.site_price)
+    : null;
+
+const promotionalPrice =
+  product.promotional_price != null
+    ? Number(product.promotional_price)
+    : null;
+
+const promotionActive =
+  product.promotion_active === true;
+
+const effectivePrice =
+  promotionActive &&
+  promotionalPrice != null &&
+  promotionalPrice > 0
+    ? promotionalPrice
+    : sitePrice != null &&
+      sitePrice > 0
+      ? sitePrice
+      : price;
+
+const hasPromotion =
+  promotionActive &&
+  promotionalPrice != null &&
+  promotionalPrice > 0 &&
+  promotionalPrice < (sitePrice ?? price);
+
 const stock = Number(product.stock ?? 0);
 
 // =========================================================
@@ -418,11 +448,16 @@ return ( <main className="min-h-screen bg-[#050505] text-white">
           <div className="mt-7">
 
             <span className="text-4xl font-black tracking-tight text-white sm:text-[42px]">
-              R$ {price.toFixed(2).replace(".", ",")}
+              {hasPromotion && (
+                <div className="mb-1 text-sm font-bold text-gray-500 line-through">
+                  R$ {sitePrice?.toFixed(2).replace(".", ",")}
+                </div>
+              )}
+              R$ {effectivePrice.toFixed(2).replace(".", ",")}
             </span>
 
             <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45">
-              3x de R$ {((price * 1.11225) / 3).toFixed(2).replace(".", ",")}
+              3x de R$ {((effectivePrice * 1.11225) / 3).toFixed(2).replace(".", ",")}
             </p>
 
           </div>
@@ -493,7 +528,7 @@ return ( <main className="min-h-screen bg-[#050505] text-white">
             itemCode={product.item_code}
             itemName={product.item_name}
             image={product.image ?? null}
-            price={price}
+            price={effectivePrice}
             availableSizes={availableSizes}
             stock={stock}
           />
@@ -504,7 +539,7 @@ return ( <main className="min-h-screen bg-[#050505] text-white">
 
 <ShippingCalculator
   itemCode={product.item_code}
-  price={price}
+  price={effectivePrice}
 />
 
           {/* =================================================
@@ -820,7 +855,7 @@ return ( <main className="min-h-screen bg-[#050505] text-white">
                   </p>
 
                   <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.14em] text-white/40">
-                    3x de R$ {((itemPrice * 1.11225) / 3).toFixed(2).replace(".", ",")}
+                    3x de R$ {((effectivePrice * 1.11225) / 3).toFixed(2).replace(".", ",")}
                   </p>
 
                 </div>

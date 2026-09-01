@@ -1,6 +1,50 @@
 import Link from "next/link";
 import { getBestSellers } from "@/services/products";
 
+function getEffectivePrice(product: any): number {
+  const sitePrice =
+    product?.site_price != null
+      ? Number(product.site_price)
+      : null;
+
+  const promotionalPrice =
+    product?.promotional_price != null
+      ? Number(product.promotional_price)
+      : null;
+
+  if (
+    product?.promotion_active === true &&
+    promotionalPrice != null &&
+    promotionalPrice > 0
+  ) {
+    return promotionalPrice;
+  }
+
+  if (sitePrice != null && sitePrice > 0) {
+    return sitePrice;
+  }
+
+  return Number(product?.price ?? 0);
+}
+
+function hasActivePromotion(product: any): boolean {
+  const sitePrice =
+    product?.site_price != null
+      ? Number(product.site_price)
+      : Number(getEffectivePrice(product));
+
+  const promotionalPrice =
+    product?.promotional_price != null
+      ? Number(product.promotional_price)
+      : 0;
+
+  return (
+    product?.promotion_active === true &&
+    promotionalPrice > 0 &&
+    promotionalPrice < sitePrice
+  );
+}
+
 const CUSTOMER_INSTALLMENT_RATE_3X = 0.11225;
 
 export default async function FeaturedProducts() {
@@ -44,7 +88,7 @@ export default async function FeaturedProducts() {
           {products.slice(0, 4).map((product) => {
 
             const productPrice = Number(
-              product.price ?? 0
+              getEffectivePrice(product)
             );
 
             const installment3x =

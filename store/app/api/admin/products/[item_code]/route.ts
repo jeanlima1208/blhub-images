@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+﻿import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = "https://api.blmantos.com.br";
@@ -32,9 +32,7 @@ async function safeJson(response: Response) {
 export async function PUT(
   request: NextRequest,
   context: {
-    params: Promise<{
-      item_code: string;
-    }>;
+    params: Promise<{ item_code: string }>;
   }
 ) {
   const session = await requireAdmin();
@@ -51,7 +49,6 @@ export async function PUT(
 
   try {
     const { item_code } = await context.params;
-    const body = await request.json();
 
     if (!item_code) {
       return NextResponse.json(
@@ -63,10 +60,10 @@ export async function PUT(
       );
     }
 
+    const body = await request.json();
+
     const response = await fetch(
-      `${API_URL}/api/admin/products/${encodeURIComponent(
-        item_code
-      )}`,
+      `${API_URL}/api/admin/products/${encodeURIComponent(item_code)}`,
       {
         method: "PUT",
         headers: {
@@ -74,7 +71,10 @@ export async function PUT(
           "X-Admin-Secret":
             process.env.ADMIN_API_SECRET || "",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          ...body,
+          item_code,
+        }),
         cache: "no-store",
       }
     );
@@ -86,7 +86,7 @@ export async function PUT(
     });
   } catch (error) {
     console.error(
-      "ADMIN_PRODUCT_PUT_ERROR",
+      "ADMIN_PRODUCTS_DYNAMIC_PUT_ERROR",
       error
     );
 

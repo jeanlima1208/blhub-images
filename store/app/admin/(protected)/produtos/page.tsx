@@ -42,11 +42,22 @@ type Product = {
   site: SiteConfig;
 };
 
-type Tab = "TODOS" | "ATIVOS" | "SEM_ESTOQUE" | "PROMOCAO";
+type Tab =
+  | "TODOS"
+  | "ATIVOS"
+  | "SEM_ESTOQUE"
+  | "PROMOCAO";
 
-type SaveState = "idle" | "edited" | "saving" | "saved" | "error";
+type SaveState =
+  | "idle"
+  | "edited"
+  | "saving"
+  | "saved"
+  | "error";
 
-const money = (value: number | null | undefined) =>
+const money = (
+  value: number | null | undefined
+) =>
   Number(value || 0).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -84,9 +95,12 @@ export default function AdminProdutosPage() {
     try {
       setLoading(true);
 
-      const response = await fetch("/api/admin/products", {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        "/api/admin/products",
+        {
+          cache: "no-store",
+        }
+      );
 
       const data = await response.json();
 
@@ -119,16 +133,19 @@ export default function AdminProdutosPage() {
     product: Product,
     changes: Partial<SiteConfig>
   ) {
-    const response = await fetch("/api/admin/products", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        item_code: product.item_code,
-        ...changes,
-      }),
-    });
+    const response = await fetch(
+      `/api/admin/products/${encodeURIComponent(
+        product.item_code
+      )}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(changes),
+        cache: "no-store",
+      }
+    );
 
     const data = await response.json();
 
@@ -405,9 +422,7 @@ export default function AdminProdutosPage() {
           refreshing={loading}
         />
 
-        <Kpis
-          counts={counts}
-        />
+        <Kpis counts={counts} />
 
         <StatusTabs
           tab={tab}
@@ -1128,9 +1143,7 @@ function ProductRow({
   const [sitePrice, setSitePrice] =
     useState(
       product.site.site_price != null
-        ? String(
-            product.site.site_price
-          )
+        ? String(product.site.site_price)
         : ""
     );
 
@@ -1170,37 +1183,58 @@ function ProductRow({
 
   useEffect(() => {
     return () => {
-      if (siteTimer.current)
+      if (siteTimer.current) {
         clearTimeout(siteTimer.current);
+      }
 
-      if (promoTimer.current)
-        clearTimeout(
-          promoTimer.current
-        );
+      if (promoTimer.current) {
+        clearTimeout(promoTimer.current);
+      }
     };
   }, []);
 
+  /*
+   * IMPORTANTE:
+   *
+   * Não sobrescrevemos o valor digitado enquanto
+   * o usuário estiver editando ou salvando.
+   *
+   * Antes, o produto podia ser atualizado pelo
+   * setProducts() e este useEffect podia colocar
+   * novamente o valor antigo dentro do input.
+   */
   useEffect(() => {
-    setSitePrice(
-      product.site.site_price != null
-        ? String(
-            product.site.site_price
-          )
-        : ""
-    );
-
-    setPromoPrice(
-      product.site
-        .promotional_price != null
-        ? String(
-            product.site
-              .promotional_price
-          )
-        : ""
-    );
+    if (
+      sitePriceState === "idle"
+    ) {
+      setSitePrice(
+        product.site.site_price != null
+          ? String(product.site.site_price)
+          : ""
+      );
+    }
   }, [
     product.site.site_price,
+    sitePriceState,
+  ]);
+
+  useEffect(() => {
+    if (
+      promoPriceState === "idle"
+    ) {
+      setPromoPrice(
+        product.site.promotional_price !=
+          null
+          ? String(
+              product.site
+                .promotional_price
+            )
+          : ""
+      );
+    }
+  }, [
     product.site.promotional_price,
+    promoPriceState,
   ]);
 
   function scheduleSitePriceSave(
@@ -1218,31 +1252,39 @@ function ProductRow({
         try {
           setSitePriceState("saving");
 
+          const parsed =
+            value.trim() === ""
+              ? null
+              : Number(
+                  value.replace(",", ".")
+                );
+
+          console.log(
+            "SITE PRICE SAVE:",
+            {
+              item_code:
+                product.item_code,
+              value,
+              parsed,
+            }
+          );
+
           await onSave(product, {
-            site_price:
-              value.trim() === ""
-                ? null
-                : Number(
-                    value.replace(
-                      ",",
-                      "."
-                    )
-                  ),
+            site_price: parsed,
           });
 
           setSitePriceState("saved");
 
-          window.setTimeout(
-            () =>
-              setSitePriceState(
-                "idle"
-              ),
-            1600
+          window.setTimeout(() => {
+            setSitePriceState("idle");
+          }, 1600);
+        } catch (error) {
+          console.error(
+            "SITE PRICE ERROR:",
+            error
           );
-        } catch {
-          setSitePriceState(
-            "error"
-          );
+
+          setSitePriceState("error");
         }
       },
       700
@@ -1268,16 +1310,19 @@ function ProductRow({
             "saving"
           );
 
+          const parsed =
+            value.trim() === ""
+              ? null
+              : Number(
+                  value.replace(
+                    ",",
+                    "."
+                  )
+                );
+
           await onSave(product, {
             promotional_price:
-              value.trim() === ""
-                ? null
-                : Number(
-                    value.replace(
-                      ",",
-                      "."
-                    )
-                  ),
+              parsed,
           });
 
           setPromoPriceState(
@@ -1395,6 +1440,7 @@ function ProductRow({
             <p className="text-[8px] font-black uppercase tracking-[0.08em] text-zinc-700">
               ERP
             </p>
+
             <p className="text-[11px] font-black text-zinc-400">
               {money(product.price)}
             </p>
@@ -1469,8 +1515,7 @@ function ProductRow({
               try {
                 await onSave(product, {
                   promotion_active:
-                    !product.site
-                      .promotion_active,
+                    !product.site.promotion_active,
                 });
               } catch {
                 // O erro já é apresentado pela camada de save.
@@ -1513,8 +1558,7 @@ function ProductRow({
             onClick={() =>
               onSave(product, {
                 visible:
-                  !product.site
-                    .visible,
+                  !product.site.visible,
               })
             }
             icon={
@@ -1538,8 +1582,7 @@ function ProductRow({
             onClick={() =>
               onSave(product, {
                 featured:
-                  !product.site
-                    .featured,
+                  !product.site.featured,
               })
             }
             icon={
@@ -1559,8 +1602,7 @@ function ProductRow({
             onClick={() =>
               onSave(product, {
                 launch:
-                  !product.site
-                    .launch,
+                  !product.site.launch,
               })
             }
             icon={
@@ -2110,8 +2152,7 @@ function ProductDrawer({
                 }
                 label="Promoção"
                 active={
-                  product.site
-                    .promotion_active
+                  product.site.promotion_active
                 }
                 loading={saving}
                 onClick={() =>
