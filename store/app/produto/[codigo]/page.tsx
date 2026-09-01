@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import AddToCart from "@/components/cart/AddToCart";
+import ProductGallery from "@/components/produto/ProductGallery";
 import {
 getProduct,
 getProducts,
@@ -109,8 +110,27 @@ const badgeClass = isTailandesa
 // =========================================================
 
 const productImages = product.image
-? [product.image]
-: [];
+  ? (() => {
+      const baseUrl = product.image.split("?")[0];
+      const version = Date.now();
+
+      const match = baseUrl.match(/^(.*\/)([^/]+?)(\.[^.]+)$/);
+
+      if (!match) {
+        return [`${product.image}?v=${version}`];
+      }
+
+      const [, pasta, nome, extensao] = match;
+
+      return [
+        `${pasta}${nome}${extensao}?v=${version}`,
+        `${pasta}${nome}-1${extensao}?v=${version}`,
+        `${pasta}${nome}-2${extensao}?v=${version}`,
+        `${pasta}${nome}-3${extensao}?v=${version}`,
+        `${pasta}${nome}-4${extensao}?v=${version}`,
+      ];
+    })()
+  : [];
 
 // =========================================================
 // PRODUTOS RELACIONADOS
@@ -352,49 +372,14 @@ return ( <main className="min-h-screen bg-[#050505] text-white">
                 {productType}
               </div>
 
-              {product.image ? (
-                <div className="aspect-[4/5] w-full">
-                  <img
-                    src={product.image}
-                    alt={product.item_name}
-                    className="block h-full w-full object-cover transition duration-700 hover:scale-[1.025]"
-                  />
-                </div>
-              ) : (
-                <div className="flex aspect-[4/5] w-full items-center justify-center">
-                  <span className="text-7xl font-black text-white/[0.035]">
-                    BL
-                  </span>
-                </div>
-              )}
+              <ProductGallery
+                images={productImages}
+                alt={product.item_name}
+              />
 
             </div>
+
           </div>
-
-          {/* =================================================
-              MINI GALERIA
-          ================================================= */}
-
-          {productImages.length > 0 && (
-            <div className="mt-4 flex gap-2">
-
-              {productImages.map((image, index) => (
-                <button
-                  key={`${image}-${index}`}
-                  type="button"
-                  aria-label={`Imagem ${index + 1}`}
-                  className="h-[68px] w-[58px] overflow-hidden rounded-xl border border-[#FFEA00] bg-[#0B0B0B] p-[2px]"
-                >
-                  <img
-                    src={image}
-                    alt=""
-                    className="h-full w-full rounded-[9px] object-cover"
-                  />
-                </button>
-              ))}
-
-            </div>
-          )}
 
         </div>
 
