@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import {
@@ -120,6 +120,46 @@ return "TAILANDESA";
 return "NACIONAL";
 };
 
+function getEffectivePrice(product: any): number {
+  const sitePrice =
+    product?.site_price != null
+      ? Number(product.site_price)
+      : Number(product?.price ?? 0);
+
+  const promotionalPrice =
+    product?.promotional_price != null
+      ? Number(product.promotional_price)
+      : 0;
+
+  if (
+    product?.promotion_active === true &&
+    promotionalPrice > 0 &&
+    promotionalPrice < sitePrice
+  ) {
+    return promotionalPrice;
+  }
+
+  return sitePrice;
+}
+
+function hasActivePromotion(product: any): boolean {
+  const sitePrice =
+    product?.site_price != null
+      ? Number(product.site_price)
+      : getEffectivePrice(product);
+
+  const promotionalPrice =
+    product?.promotional_price != null
+      ? Number(product.promotional_price)
+      : 0;
+
+  return (
+    product?.promotion_active === true &&
+    promotionalPrice > 0 &&
+    promotionalPrice < sitePrice
+  );
+}
+
 export default function CatalogClient({
 products,
 bestSellers,
@@ -145,6 +185,9 @@ const timeParam =
 const buscaParam =
   searchParams.get("busca");
 
+
+const promocaoParam =
+  searchParams.get("promocao");
 const [search, setSearch] =
 useState("");
 
@@ -169,8 +212,18 @@ useState<string[]>([]);
 const [maxPrice, setMaxPrice] =
 useState(200);
 
+const ordemParam =
+searchParams.get("ordem");
+
+const initialSort: SortOption =
+ordemParam === "LANCAMENTOS"
+  ? "LANCAMENTOS"
+  : ordemParam === "MAIS_VENDIDOS"
+    ? "MAIS_VENDIDOS"
+    : "RELEVANCIA";
+
 const [sort, setSort] =
-useState<SortOption>("RELEVANCIA");
+useState<SortOption>(initialSort);
 
 const [visibleCount, setVisibleCount] =
 useState(20);
@@ -413,6 +466,17 @@ search.trim().toUpperCase();
 
 const result = products.filter(
   (product) => {
+    // SOMENTE PRODUTOS VIS?VEIS NO SITE
+    if (product.visible === false) {
+      return false;
+    }    
+    if (
+      promocaoParam === "1" &&
+      !hasActivePromotion(product)
+    ) {
+      return false;
+    }
+
     // SOMENTE PRODUTOS COM ESTOQUE
 
     if (
@@ -535,9 +599,7 @@ const result = products.filter(
 
     // PREÇO
 
-    const price = Number(
-      product.price || 0
-    );
+    const price = getEffectivePrice(product);
 
     if (price > maxPrice) {
       return false;
@@ -636,25 +698,17 @@ if (
 ) {
   return [...result].sort(
     (a, b) => {
-      const codeA =
-        String(
-          a.item_code || ""
-        );
+      const dateA = new Date(a.creation || 0).getTime();
+      const dateB = new Date(b.creation || 0).getTime();
 
-      const codeB =
-        String(
-          b.item_code || ""
-        );
-
-      return codeB.localeCompare(
-        codeA,
-        "pt-BR",
-        { numeric: true }
-      );
+      return dateB - dateA;
     }
   );
 }
 
+// ======================================================
+// RELEVÂNCIA
+// ======================================================
 // ======================================================
 // RELEVÂNCIA
 // ======================================================
@@ -664,6 +718,16 @@ if (
 ) {
   return [...result].sort(
     (a, b) => {
+      const featuredA =
+        a.featured === true ? 1 : 0;
+
+      const featuredB =
+        b.featured === true ? 1 : 0;
+
+      if (featuredA !== featuredB) {
+        return featuredB - featuredA;
+      }
+
       const stockA =
         Number(a.stock || 0);
 
@@ -1446,10 +1510,22 @@ SIDEBAR
                 "TAILANDESA";
 
               const price =
-                Number(
-                  product.price ||
-                    0
-                );
+                getEffectivePrice(product);
+
+              const sitePrice =
+                product.site_price != null
+                  ? Number(product.site_price)
+                  : Number(product.price ?? 0);
+
+              const promotionalPrice =
+                product.promotional_price != null
+                  ? Number(product.promotional_price)
+                  : 0;
+
+              const hasPromotion =
+                product.promotion_active === true &&
+                promotionalPrice > 0 &&
+                promotionalPrice < sitePrice;
 
               const stock =
                 Number(
@@ -1516,17 +1592,17 @@ SIDEBAR
                       </p>
 
                       <div className="mt-3 flex items-end justify-between gap-2">
-                        <p className="text-base font-black text-white">
-                          R${" "}
-                          {price
-                            .toFixed(
-                              2
-                            )
-                            .replace(
-                              ".",
-                              ","
-                            )}
-                        </p>
+                        <div className="flex flex-col">
+                          {hasPromotion && (
+                            <span className="text-[11px] font-bold leading-none text-white/40 line-through">
+                              R$ {sitePrice.toFixed(2).replace(".", ",")}
+                            </span>
+                          )}
+                          <p className="text-base font-black text-white">
+                            R${" "}
+                            {price.toFixed(2).replace(".", ",")}
+                          </p>
+                        </div>
 
                         {stock >
                           0 && (
@@ -1607,3 +1683,7 @@ SIDEBAR
 
 );
 }
+
+
+
+
