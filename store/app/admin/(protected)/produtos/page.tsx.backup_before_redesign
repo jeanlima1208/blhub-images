@@ -1,0 +1,1200 @@
+﻿"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Flame,
+  Loader2,
+  Package,
+  RefreshCw,
+  Search,
+  Star,
+  Tag,
+  X,
+} from "lucide-react";
+
+type SiteConfig = {
+  site_price: number | null;
+  promotional_price: number | null;
+  promotion_active: boolean;
+  visible: boolean;
+  featured: boolean;
+  launch: boolean;
+};
+
+type Product = {
+  item_code: string;
+  item_name: string;
+  item_group?: string;
+  image?: string | null;
+  stock?: number;
+  price?: number;
+  availableSizes?: string[];
+  custom_time_nome?: string;
+  custom_categoria_time?: string;
+  site: SiteConfig;
+};
+
+type Tab = "TODOS" | "ATIVOS" | "SEM_ESTOQUE" | "PROMOCAO";
+
+const money = (value: number | null | undefined) =>
+  Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+function parseSize(value: string) {
+  const [size, qty] = value.split("|");
+  return {
+    size: size || "?",
+    qty: Number(qty || 0),
+  };
+}
+
+export default function AdminProdutosPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("TODAS");
+  const [stockFilter, setStockFilter] = useState("TODOS");
+  const [tab, setTab] = useState<Tab>("TODOS");
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  async function loadProducts() {
+    try {
+      setLoading(true);
+
+      const response = await fetch("/api/admin/products", {
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.detail || "Não foi possível carregar os produtos."
+        );
+      }
+
+      setProducts(data.products || []);
+    } catch (error) {
+      console.error(error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os produtos."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  async function updateProduct(
+    product: Product,
+    changes: Partial<SiteConfig>
+  ) {
+    try {
+      setSaving(product.item_code);
+
+      const response = await fetch("/api/admin/products", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          item_code: product.item_code,
+          ...changes,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.detail || "Não foi possível salvar o produto."
+        );
+      }
+
+      setProducts((current) =>
+        current.map((item) =>
+          item.item_code === product.item_code
+            ? {
+                ...item,
+                site: {
+                  ...item.site,
+                  ...changes,
+                },
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar o produto."
+      );
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function bulkUpdate(changes: Partial<SiteConfig>) {
+    const itemCodes = Array.from(selected);
+
+    if (!itemCodes.length) return;
+
+    try {
+      setBulkSaving(true);
+
+      const response = await fetch("/api/admin/products/bulk", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          item_codes: itemCodes,
+          ...changes,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.detail || "Não foi possível aplicar a alteração."
+        );
+      }
+
+      setProducts((current) =>
+        current.map((product) =>
+          selected.has(product.item_code)
+            ? {
+                ...product,
+                site: {
+                  ...product.site,
+                  ...changes,
+                },
+              }
+            : product
+        )
+      );
+
+      setSelected(new Set());
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível aplicar a alteração."
+      );
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
+  const categories = useMemo(() => {
+    return [
+      "TODAS",
+      ...Array.from(
+        new Set(
+          products
+            .map((product) => product.custom_categoria_time)
+            .filter(Boolean)
+        )
+      ).sort(),
+    ];
+  }, [products]);
+
+  const counts = useMemo(() => {
+    const total = products.length;
+
+    const active = products.filter(
+      (product) => product.site.visible
+    ).length;
+
+    const empty = products.filter(
+      (product) => Number(product.stock || 0) <= 0
+    ).length;
+
+    const promotion = products.filter(
+      (product) => product.site.promotion_active
+    ).length;
+
+    const customPrice = products.filter(
+      (product) =>
+        product.site.site_price != null &&
+        Number(product.site.site_price) !== Number(product.price || 0)
+    ).length;
+
+    return {
+      total,
+      active,
+      empty,
+      promotion,
+      customPrice,
+    };
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const matchesSearch =
+        !term ||
+        product.item_code.toLowerCase().includes(term) ||
+        product.item_name.toLowerCase().includes(term) ||
+        (product.custom_time_nome || "")
+          .toLowerCase()
+          .includes(term);
+
+      const matchesCategory =
+        category === "TODAS" ||
+        product.custom_categoria_time === category;
+
+      const stock = Number(product.stock || 0);
+
+      const matchesStock =
+        stockFilter === "TODOS" ||
+        (stockFilter === "DISPONIVEL" && stock > 0) ||
+        (stockFilter === "SEM_ESTOQUE" && stock <= 0);
+
+      const matchesTab =
+        tab === "TODOS" ||
+        (tab === "ATIVOS" && product.site.visible) ||
+        (tab === "SEM_ESTOQUE" && stock <= 0) ||
+        (tab === "PROMOCAO" && product.site.promotion_active);
+
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesStock &&
+        matchesTab
+      );
+    });
+  }, [
+    products,
+    search,
+    category,
+    stockFilter,
+    tab,
+  ]);
+
+  const allFilteredSelected =
+    filteredProducts.length > 0 &&
+    filteredProducts.every((product) =>
+      selected.has(product.item_code)
+    );
+
+  const someSelected = selected.size > 0;
+
+  function toggleProduct(itemCode: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+
+      if (next.has(itemCode)) {
+        next.delete(itemCode);
+      } else {
+        next.add(itemCode);
+      }
+
+      return next;
+    });
+  }
+
+  function toggleAllFiltered() {
+    setSelected((current) => {
+      const next = new Set(current);
+
+      if (allFilteredSelected) {
+        filteredProducts.forEach((product) =>
+          next.delete(product.item_code)
+        );
+      } else {
+        filteredProducts.forEach((product) =>
+          next.add(product.item_code)
+        );
+      }
+
+      return next;
+    });
+  }
+
+  function selectOutOfStock() {
+    const emptyCodes = filteredProducts
+      .filter((product) => Number(product.stock || 0) <= 0)
+      .map((product) => product.item_code);
+
+    setSelected(new Set(emptyCodes));
+  }
+
+  return (
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1700px]">
+        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#FFEA00]">
+              Catálogo comercial
+            </p>
+
+            <h2 className="mt-2 text-3xl font-black tracking-tight">
+              Produtos
+            </h2>
+
+            <p className="mt-1 text-sm text-white/35">
+              Controle completo da vitrine, preços, promoções e estoque.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={loadProducts}
+            disabled={loading}
+            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 text-[10px] font-black uppercase tracking-[0.12em] text-white/45 transition hover:border-white/[0.14] hover:text-white disabled:opacity-40"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${
+                loading ? "animate-spin" : ""
+              }`}
+            />
+            Atualizar
+          </button>
+        </div>
+
+        <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <KpiCard
+            label="Produtos no site"
+            value={counts.active}
+            detail={`${counts.total} cadastrados`}
+            icon={<Eye className="h-4 w-4" />}
+          />
+
+          <KpiCard
+            label="Alertas de estoque"
+            value={counts.empty}
+            detail="sem estoque"
+            danger={counts.empty > 0}
+            icon={<Package className="h-4 w-4" />}
+          />
+
+          <KpiCard
+            label="Preço exclusivo"
+            value={counts.customPrice}
+            detail="diferente do ERP"
+            icon={<Tag className="h-4 w-4" />}
+          />
+
+          <KpiCard
+            label="Em promoção"
+            value={counts.promotion}
+            detail="promoções ativas"
+            icon={<Flame className="h-4 w-4" />}
+          />
+        </div>
+
+        <div className="mb-4 flex gap-1 overflow-x-auto border-b border-white/[0.07]">
+          <StatusTab
+            active={tab === "TODOS"}
+            onClick={() => setTab("TODOS")}
+            label="Todos"
+            count={counts.total}
+          />
+
+          <StatusTab
+            active={tab === "ATIVOS"}
+            onClick={() => setTab("ATIVOS")}
+            label="Ativos no site"
+            count={counts.active}
+          />
+
+          <StatusTab
+            active={tab === "SEM_ESTOQUE"}
+            onClick={() => setTab("SEM_ESTOQUE")}
+            label="Sem estoque"
+            count={counts.empty}
+          />
+
+          <StatusTab
+            active={tab === "PROMOCAO"}
+            onClick={() => setTab("PROMOCAO")}
+            label="Em promoção"
+            count={counts.promotion}
+          />
+        </div>
+
+        <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_190px_180px_auto]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Buscar código, produto ou time..."
+              className="h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.025] pl-11 pr-4 text-sm text-white outline-none placeholder:text-white/20 focus:border-[#FFEA00]/30"
+            />
+          </div>
+
+          <DarkSelect
+            value={category}
+            onChange={setCategory}
+            options={categories}
+          />
+
+          <DarkSelect
+            value={stockFilter}
+            onChange={setStockFilter}
+            options={[
+              "TODOS",
+              "DISPONIVEL",
+              "SEM_ESTOQUE",
+            ]}
+            labels={{
+              TODOS: "Todo estoque",
+              DISPONIVEL: "Com estoque",
+              SEM_ESTOQUE: "Sem estoque",
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={selectOutOfStock}
+            className="h-11 rounded-xl border border-red-400/10 bg-red-400/[0.04] px-4 text-[9px] font-black uppercase tracking-[0.1em] text-red-300/60 transition hover:border-red-400/20 hover:text-red-300"
+          >
+            Selecionar sem estoque
+          </button>
+        </div>
+
+        {someSelected && (
+          <BulkBar
+            count={selected.size}
+            loading={bulkSaving}
+            onClear={() => setSelected(new Set())}
+            onHide={() =>
+              bulkUpdate({
+                visible: false,
+              })
+            }
+            onShow={() =>
+              bulkUpdate({
+                visible: true,
+              })
+            }
+            onFeatured={() =>
+              bulkUpdate({
+                featured: true,
+              })
+            }
+            onLaunch={() =>
+              bulkUpdate({
+                launch: true,
+              })
+            }
+            onPromotion={() =>
+              bulkUpdate({
+                promotion_active: true,
+              })
+            }
+          />
+        )}
+
+        <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1280px] border-collapse">
+              <thead>
+                <tr className="border-b border-white/[0.07] bg-white/[0.025]">
+                  <th className="w-12 px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={toggleAllFiltered}
+                      className={`flex h-4 w-4 items-center justify-center rounded border transition ${
+                        allFilteredSelected
+                          ? "border-[#FFEA00] bg-[#FFEA00] text-black"
+                          : "border-white/20 bg-transparent"
+                      }`}
+                    >
+                      {allFilteredSelected && (
+                        <Check className="h-3 w-3" />
+                      )}
+                    </button>
+                  </th>
+
+                  <TableHead>
+                    Seleção & Foto
+                  </TableHead>
+
+                  <TableHead>
+                    Produto & Liga
+                  </TableHead>
+
+                  <TableHead>
+                    ERP / Site
+                  </TableHead>
+
+                  <TableHead>
+                    Promoção
+                  </TableHead>
+
+                  <TableHead>
+                    Estoque / Grade
+                  </TableHead>
+
+                  <TableHead>
+                    Vitrine
+                  </TableHead>
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-20 text-center"
+                    >
+                      <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#FFEA00]" />
+
+                      <p className="mt-3 text-xs text-white/30">
+                        Carregando produtos...
+                      </p>
+                    </td>
+                  </tr>
+                ) : filteredProducts.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-20 text-center"
+                    >
+                      <Package className="mx-auto h-8 w-8 text-white/15" />
+
+                      <p className="mt-3 text-xs text-white/30">
+                        Nenhum produto encontrado.
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.map((product) => (
+                    <ProductRow
+                      key={product.item_code}
+                      product={product}
+                      selected={selected.has(product.item_code)}
+                      saving={saving === product.item_code}
+                      onSelect={() =>
+                        toggleProduct(product.item_code)
+                      }
+                      onSave={updateProduct}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-white/[0.07] px-4 py-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/20">
+              Exibindo {filteredProducts.length} de {products.length}
+            </p>
+
+            {selected.size > 0 && (
+              <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#FFEA00]/70">
+                {selected.size} selecionado(s)
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  detail,
+  icon,
+  danger,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  icon: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/25">
+          {label}
+        </p>
+
+        <span
+          className={
+            danger
+              ? "text-red-400"
+              : "text-[#FFEA00]/50"
+          }
+        >
+          {icon}
+        </span>
+      </div>
+
+      <p
+        className={`mt-2 text-2xl font-black ${
+          danger ? "text-red-300" : "text-white"
+        }`}
+      >
+        {value}
+      </p>
+
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.1em] text-white/20">
+        {detail}
+      </p>
+    </div>
+  );
+}
+
+function StatusTab({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 border-b-2 px-4 py-3 text-[9px] font-black uppercase tracking-[0.12em] transition ${
+        active
+          ? "border-[#FFEA00] text-[#FFEA00]"
+          : "border-transparent text-white/25 hover:text-white/50"
+      }`}
+    >
+      {label}
+      <span
+        className={`ml-2 rounded-full px-1.5 py-0.5 ${
+          active
+            ? "bg-[#FFEA00]/10"
+            : "bg-white/[0.05]"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function DarkSelect({
+  value,
+  onChange,
+  options,
+  labels,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  labels?: Record<string, string>;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="h-11 w-full appearance-none rounded-xl border border-white/[0.08] bg-[#0b0b0b] px-4 pr-10 text-[9px] font-black uppercase tracking-[0.1em] text-white/50 outline-none focus:border-[#FFEA00]/30"
+      >
+        {options.map((option) => (
+          <option
+            key={option}
+            value={option}
+            className="bg-[#0b0b0b]"
+          >
+            {labels?.[option] || option}
+          </option>
+        ))}
+      </select>
+
+      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/20" />
+    </div>
+  );
+}
+
+function BulkBar({
+  count,
+  loading,
+  onClear,
+  onHide,
+  onShow,
+  onFeatured,
+  onLaunch,
+  onPromotion,
+}: {
+  count: number;
+  loading: boolean;
+  onClear: () => void;
+  onHide: () => void;
+  onShow: () => void;
+  onFeatured: () => void;
+  onLaunch: () => void;
+  onPromotion: () => void;
+}) {
+  return (
+    <div className="sticky top-[73px] z-20 mb-3 rounded-xl border border-[#FFEA00]/15 bg-[#101000]/95 px-4 py-3 shadow-2xl shadow-black/30 backdrop-blur-xl">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FFEA00] text-black">
+            <Check className="h-4 w-4" />
+          </div>
+
+          <div>
+            <p className="text-xs font-black text-white">
+              {count} produto(s) selecionado(s)
+            </p>
+
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/25">
+              Ações em lote
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <BulkButton
+            icon={<EyeOff className="h-3.5 w-3.5" />}
+            label="Ocultar"
+            onClick={onHide}
+            loading={loading}
+          />
+
+          <BulkButton
+            icon={<Eye className="h-3.5 w-3.5" />}
+            label="Mostrar"
+            onClick={onShow}
+            loading={loading}
+          />
+
+          <BulkButton
+            icon={<Star className="h-3.5 w-3.5" />}
+            label="Destaque"
+            onClick={onFeatured}
+            loading={loading}
+          />
+
+          <BulkButton
+            icon={<Flame className="h-3.5 w-3.5" />}
+            label="Lançamento"
+            onClick={onLaunch}
+            loading={loading}
+          />
+
+          <BulkButton
+            icon={<Tag className="h-3.5 w-3.5" />}
+            label="Promoção"
+            onClick={onPromotion}
+            loading={loading}
+          />
+
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={loading}
+            className="flex h-8 items-center gap-1.5 rounded-lg px-3 text-[9px] font-black uppercase tracking-[0.1em] text-white/25 transition hover:bg-white/[0.05] hover:text-white/60"
+          >
+            <X className="h-3.5 w-3.5" />
+            Limpar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BulkButton({
+  icon,
+  label,
+  onClick,
+  loading,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  loading: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.07] bg-white/[0.04] px-3 text-[9px] font-black uppercase tracking-[0.08em] text-white/50 transition hover:border-[#FFEA00]/20 hover:bg-[#FFEA00]/5 hover:text-[#FFEA00] disabled:opacity-40"
+    >
+      {loading ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        icon
+      )}
+      {label}
+    </button>
+  );
+}
+
+function TableHead({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <th className="px-3 py-3 text-left text-[8px] font-black uppercase tracking-[0.15em] text-white/25">
+      {children}
+    </th>
+  );
+}
+
+function ProductRow({
+  product,
+  selected,
+  saving,
+  onSelect,
+  onSave,
+}: {
+  product: Product;
+  selected: boolean;
+  saving: boolean;
+  onSelect: () => void;
+  onSave: (
+    product: Product,
+    changes: Partial<SiteConfig>
+  ) => void;
+}) {
+  const [sitePrice, setSitePrice] = useState(
+    product.site.site_price != null
+      ? String(product.site.site_price)
+      : ""
+  );
+
+  const [promoPrice, setPromoPrice] = useState(
+    product.site.promotional_price != null
+      ? String(product.site.promotional_price)
+      : ""
+  );
+
+  const [priceStatus, setPriceStatus] = useState<
+    "idle" | "edited" | "saved"
+  >("idle");
+
+  useEffect(() => {
+    setSitePrice(
+      product.site.site_price != null
+        ? String(product.site.site_price)
+        : ""
+    );
+
+    setPromoPrice(
+      product.site.promotional_price != null
+        ? String(product.site.promotional_price)
+        : ""
+    );
+  }, [
+    product.site.site_price,
+    product.site.promotional_price,
+  ]);
+
+  async function savePrices() {
+    setPriceStatus("edited");
+
+    const changes = {
+      site_price:
+        sitePrice.trim() === ""
+          ? null
+          : Number(sitePrice.replace(",", ".")),
+      promotional_price:
+        promoPrice.trim() === ""
+          ? null
+          : Number(promoPrice.replace(",", ".")),
+    };
+
+    await onSave(product, changes);
+
+    setPriceStatus("saved");
+
+    window.setTimeout(() => {
+      setPriceStatus("idle");
+    }, 1800);
+  }
+
+  const sizes = (product.availableSizes || []).map(
+    parseSize
+  );
+
+  const stock = Number(product.stock || 0);
+
+  return (
+    <tr
+      className={`border-b border-white/[0.045] align-middle transition ${
+        selected
+          ? "bg-[#FFEA00]/[0.035]"
+          : "hover:bg-white/[0.015]"
+      }`}
+    >
+      <td className="px-4 py-3">
+        <button
+          type="button"
+          onClick={onSelect}
+          className={`flex h-4 w-4 items-center justify-center rounded border transition ${
+            selected
+              ? "border-[#FFEA00] bg-[#FFEA00] text-black"
+              : "border-white/20 bg-transparent hover:border-white/40"
+          }`}
+        >
+          {selected && (
+            <Check className="h-3 w-3" />
+          )}
+        </button>
+      </td>
+
+      <td className="px-3 py-3">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-white/[0.07] bg-[#111]">
+            {product.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={product.image}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-[7px] font-black uppercase tracking-wider text-white/15">
+                FOTO
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <p className="font-mono text-[9px] font-bold text-[#FFEA00]/60">
+              {product.item_code}
+            </p>
+
+            <p className="mt-0.5 max-w-[230px] truncate text-xs font-bold text-white/85">
+              {product.item_name}
+            </p>
+          </div>
+        </div>
+      </td>
+
+      <td className="px-3 py-3">
+        <p className="max-w-[190px] truncate text-[11px] font-bold text-white/70">
+          {product.custom_time_nome || "Sem time"}
+        </p>
+
+        <p className="mt-1 text-[8px] font-black uppercase tracking-[0.08em] text-white/20">
+          {product.custom_categoria_time || "Sem categoria"}
+        </p>
+      </td>
+
+      <td className="px-3 py-3">
+        <p className="text-[10px] font-bold text-white/35">
+          ERP{" "}
+          <span className="font-black text-white/65">
+            {money(product.price)}
+          </span>
+        </p>
+
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span className="text-[9px] text-white/20">
+            Site
+          </span>
+
+          <span className="text-[9px] text-white/25">
+            R$
+          </span>
+
+          <input
+            value={sitePrice}
+            onChange={(event) => {
+              setSitePrice(event.target.value);
+              setPriceStatus("edited");
+            }}
+            onBlur={savePrices}
+            className="w-[76px] rounded-md border border-white/[0.08] bg-black/30 px-2 py-1.5 text-[10px] font-black text-white outline-none focus:border-[#FFEA00]/30"
+          />
+
+          {saving ? (
+            <Loader2 className="h-3 w-3 animate-spin text-[#FFEA00]" />
+          ) : priceStatus === "saved" ? (
+            <Check className="h-3 w-3 text-[#00FF66]" />
+          ) : priceStatus === "edited" ? (
+            <span className="text-[7px] font-black uppercase text-[#FFEA00]">
+              Editado
+            </span>
+          ) : null}
+        </div>
+      </td>
+
+      <td className="px-3 py-3">
+        <div className="flex items-center gap-2">
+          <input
+            value={promoPrice}
+            onChange={(event) =>
+              setPromoPrice(event.target.value)
+            }
+            onBlur={savePrices}
+            placeholder="0,00"
+            className="w-[76px] rounded-md border border-white/[0.08] bg-black/30 px-2 py-1.5 text-[10px] font-black text-white outline-none placeholder:text-white/15 focus:border-[#FFEA00]/30"
+          />
+
+          <button
+            type="button"
+            onClick={() =>
+              onSave(product, {
+                promotion_active:
+                  !product.site.promotion_active,
+              })
+            }
+            className={`rounded-full px-2 py-1 text-[7px] font-black uppercase tracking-[0.08em] transition ${
+              product.site.promotion_active
+                ? "bg-[#FFEA00] text-black"
+                : "bg-white/[0.05] text-white/25 hover:text-white/50"
+            }`}
+          >
+            {product.site.promotion_active
+              ? "ATIVA"
+              : "ATIVAR"}
+          </button>
+        </div>
+      </td>
+
+      <td className="px-3 py-3">
+        <div className="flex items-center gap-2">
+          <div>
+            <p
+              className={`text-sm font-black ${
+                stock > 0
+                  ? "text-[#00FF66]"
+                  : "text-red-400"
+              }`}
+            >
+              {stock}
+              <span className="ml-1 text-[8px] font-bold uppercase text-white/20">
+                un
+              </span>
+            </p>
+          </div>
+
+          {sizes.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {sizes.map(({ size, qty }) => (
+                <span
+                  key={`${size}-${product.item_code}`}
+                  className={`rounded-md border px-1.5 py-1 text-[7px] font-black ${
+                    qty > 0
+                      ? "border-white/[0.07] bg-white/[0.025] text-white/45"
+                      : "border-red-400/[0.08] bg-red-400/[0.025] text-red-300/30"
+                  }`}
+                >
+                  {size} {qty}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </td>
+
+      <td className="px-3 py-3">
+        <div className="flex items-center gap-1.5">
+          <MiniToggle
+            title="Visível"
+            active={product.site.visible}
+            onClick={() =>
+              onSave(product, {
+                visible: !product.site.visible,
+              })
+            }
+            icon={
+              product.site.visible ? (
+                <Eye className="h-3.5 w-3.5" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5" />
+              )
+            }
+          />
+
+          <MiniToggle
+            title="Destaque"
+            active={product.site.featured}
+            onClick={() =>
+              onSave(product, {
+                featured: !product.site.featured,
+              })
+            }
+            icon={
+              <Star className="h-3.5 w-3.5" />
+            }
+          />
+
+          <MiniToggle
+            title="Lançamento"
+            active={product.site.launch}
+            onClick={() =>
+              onSave(product, {
+                launch: !product.site.launch,
+              })
+            }
+            icon={
+              <Flame className="h-3.5 w-3.5" />
+            }
+          />
+        </div>
+
+        <div className="mt-1.5 flex items-center gap-1 text-[7px] font-black uppercase tracking-[0.08em] text-[#00FF66]/50">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#00FF66]" />
+          ERP sincronizado
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function MiniToggle({
+  title,
+  active,
+  onClick,
+  icon,
+}: {
+  title: string;
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+        active
+          ? "border-[#FFEA00]/25 bg-[#FFEA00]/10 text-[#FFEA00]"
+          : "border-white/[0.06] bg-white/[0.02] text-white/20 hover:text-white/50"
+      }`}
+    >
+      {icon}
+    </button>
+  );
+}

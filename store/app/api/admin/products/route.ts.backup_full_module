@@ -1,4 +1,4 @@
-﻿import { auth } from "@/auth";
+import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = "https://api.blmantos.com.br";
@@ -6,39 +6,15 @@ const API_URL = "https://api.blmantos.com.br";
 async function requireAdmin() {
   const session = await auth();
 
-  console.log("=== ADMIN API AUTH DEBUG ===");
-  console.log("Session:", session);
-  console.log("Session email:", session?.user?.email);
-  console.log("Expected email:", process.env.ADMIN_EMAIL);
-  console.log(
-    "Email matches:",
-    session?.user?.email === process.env.ADMIN_EMAIL
-  );
+  if (!session?.user?.email) {
+    return null;
+  }
 
-  if (
-    !session?.user?.email ||
-    session.user.email !== process.env.ADMIN_EMAIL
-  ) {
+  if (session.user.email !== process.env.ADMIN_EMAIL) {
     return null;
   }
 
   return session;
-}
-
-async function safeJson(
-  response: Response
-) {
-  const text = await response.text();
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return {
-      success: false,
-      detail:
-        "A API retornou uma resposta inválida.",
-    };
-  }
 }
 
 export async function GET() {
@@ -60,39 +36,30 @@ export async function GET() {
       {
         cache: "no-store",
         headers: {
-          "X-Admin-Secret":
-            process.env.ADMIN_API_SECRET || "",
+          "X-Admin-Secret": process.env.ADMIN_API_SECRET || "",
         },
       }
     );
 
-    const data = await safeJson(
-      response
-    );
+    const data = await response.json();
 
     return NextResponse.json(data, {
       status: response.status,
     });
   } catch (error) {
-    console.error(
-      "ADMIN_PRODUCTS_GET_ERROR",
-      error
-    );
+    console.error("ADMIN_PRODUCTS_GET_ERROR", error);
 
     return NextResponse.json(
       {
         success: false,
-        detail:
-          "Não foi possível carregar os produtos.",
+        detail: "Não foi possível carregar os produtos.",
       },
       { status: 500 }
     );
   }
 }
 
-export async function PUT(
-  request: NextRequest
-) {
+export async function PUT(request: NextRequest) {
   const session = await requireAdmin();
 
   if (!session) {
@@ -107,13 +74,13 @@ export async function PUT(
 
   try {
     const body = await request.json();
+    const itemCode = body?.item_code;
 
-    if (!body?.item_code) {
+    if (!itemCode) {
       return NextResponse.json(
         {
           success: false,
-          detail:
-            "item_code é obrigatório.",
+          detail: "item_code é obrigatório.",
         },
         { status: 400 }
       );
@@ -121,39 +88,31 @@ export async function PUT(
 
     const response = await fetch(
       `${API_URL}/api/admin/products/${encodeURIComponent(
-        body.item_code
+        itemCode
       )}`,
       {
         method: "PUT",
         headers: {
-          "Content-Type":
-            "application/json",
-          "X-Admin-Secret":
-            process.env.ADMIN_API_SECRET || "",
+          "Content-Type": "application/json",
+          "X-Admin-Secret": process.env.ADMIN_API_SECRET || "",
         },
         body: JSON.stringify(body),
         cache: "no-store",
       }
     );
 
-    const data = await safeJson(
-      response
-    );
+    const data = await response.json();
 
     return NextResponse.json(data, {
       status: response.status,
     });
   } catch (error) {
-    console.error(
-      "ADMIN_PRODUCTS_PUT_ERROR",
-      error
-    );
+    console.error("ADMIN_PRODUCTS_PUT_ERROR", error);
 
     return NextResponse.json(
       {
         success: false,
-        detail:
-          "Não foi possível salvar o produto.",
+        detail: "Não foi possível salvar o produto.",
       },
       { status: 500 }
     );

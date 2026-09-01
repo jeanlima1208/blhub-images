@@ -1,0 +1,16 @@
+﻿{
+  "items": [
+    {
+      "item_code": "TESTE",
+      "name": "Produto teste",
+      "price": 80,
+      "quantity": 1,
+      "size": "P"
+    }
+  ],
+  "shipping_type": "MELHOR_ENVIO",
+  "shipping_cost": 10,
+  "shipping_option": "Teste",
+  "discount": 0,
+  "payment_method": "MERCADO_PAGO"
+}
