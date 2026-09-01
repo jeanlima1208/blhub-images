@@ -26,6 +26,11 @@ type SortOption =
 | "MAIS_VENDIDOS"
 | "LANCAMENTOS";
 
+function getVersionedImageUrl(image: string): string {
+  const separator = image.includes("?") ? "&" : "?";
+  return `${image}${separator}v=20260901`;
+}
+
 const sizes = [
 "P",
 "M",
@@ -1467,8 +1472,8 @@ SIDEBAR
                       {product.image ? (
                         <img
                           src={
-                            product.image
-                          }
+  getVersionedImageUrl(product.image)
+}
                           alt={
                             product.item_name ||
                             product.item_code
